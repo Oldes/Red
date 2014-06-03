@@ -265,7 +265,7 @@ Red [
   --test-- "series-append-5"
   --assert 49 = last append "abcdeÃ©" "1" ;; utf-8 C3 A9
   --test-- "series-append-6"
-  --assert 10000 = last append "abcde" "âœ"
+  --assert 10000 = last append "abcde" "âœ?"
   --test-- "series-append-7"
   --assert 48 = last append "abcde^(2710)" "0"
   --test-- "series-append-8"
@@ -447,10 +447,10 @@ Red [
   --assert "Ã©" = find append "abcde" "Ã©" "Ã©" 
   
   --test-- "series-find-30"
-  --assert 10000 = first find "abcdeâœ" "âœ"
+  --assert 10000 = first find "abcdeâœ?" "âœ?"
   
   --test-- "series-find-30a"
-  --assert 10000 = first find "abcdeâœ" #"âœ"
+  --assert 10000 = first find "abcdeâœ?" #"âœ?"
   
   --test-- "series-find-31"
   --assert none = find "012345" 48
@@ -694,7 +694,7 @@ Red [
 	--assert "" = clear c2-s
 	
 	--test-- "clear-4"
-		c4-s: "âœ"
+		c4-s: "âœ?"
 	--assert "" = clear c4-s
 	
 	--test-- "clear-5"
@@ -899,6 +899,11 @@ Red [
 		--assert b = c: take/deep a
 		--assert b <> remove c
 
+	--test-- "take-blk-5"
+		a: [1 2 3]
+		--assert [1 2 3] = take/part a 22
+		--assert [] = a
+
 	--test-- "take-str-1"
 		a: "123"
 		--assert #"1" = take a
@@ -941,6 +946,11 @@ Red [
 		a: "123"
 		--assert "23" = take/part/last a next a
 		--assert "1"  = a
+
+	--test-- "take-str-10"
+		a: "123"
+		--assert "123" = take/part a 22
+		--assert "" = a
 
 	--test-- "take-bin-1"
 		b: #{0102}

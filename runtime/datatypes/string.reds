@@ -2113,7 +2113,7 @@ string: context [
 		]
 		s:    GET_BUFFER(str)
 		unit: GET_UNIT(s)
-		part: unit
+		part: 1
 
 		if OPTION?(part-arg) [
 			part: either TYPE_OF(part-arg) = TYPE_INTEGER [
@@ -2132,6 +2132,7 @@ string: context [
 					either last? [size - (str2/head - str/head)][str2/head - str/head]
 				]
 			]
+			if part > size [part: size]
 		]
 
 		bytes:	part << (unit >> 1)
