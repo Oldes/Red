@@ -30,7 +30,7 @@ set-word!:		make datatype! #get-definition TYPE_SET_WORD
 get-word!:		make datatype! #get-definition TYPE_GET_WORD
 lit-word!:		make datatype! #get-definition TYPE_LIT_WORD
 refinement!:	make datatype! #get-definition TYPE_REFINEMENT
-;binary!:		make datatype! #get-definition TYPE_BINARY
+binary!:		make datatype! #get-definition TYPE_BINARY
 paren!:			make datatype! #get-definition TYPE_PAREN
 char!:			make datatype! #get-definition TYPE_CHAR
 issue!:			make datatype! #get-definition TYPE_ISSUE
@@ -89,7 +89,13 @@ reflect: make action! [[
 	#get-definition ACT_REFLECT
 ]
 
-;to
+to: make action! [[
+		"Converts to a specified datatype."
+		type	[any-type!] "The datatype or example value"
+		spec 	[any-type!] "The attributes of the new value"
+	]
+	#get-definition ACT_TO
+]
 
 form: make action! [[
 		"Returns a user-friendly string representation of a value."
@@ -995,6 +1001,20 @@ arctangent: make native! [[
 	#get-definition NAT_ARCTANGENT
 ]
 
+debase: make native! [[
+		"Converts a string to binary"
+		value [string! file!]							;@@ replace with any-string!
+	]
+	#get-definition NAT_DEBASE
+]
+
+enbase: make native! [[
+		"Converts a string to binary"
+		value [string! file!]							;@@ replace with any-string!
+	]
+	#get-definition NAT_ENBASE
+]
+
 ;------------------------------------------
 ;-			   Operators				  -
 ;------------------------------------------
@@ -1132,7 +1152,7 @@ word?:		 func ["Returns true if the value is this type." value [any-type!]] [wor
 any-series?: func [value][
 	find [												;@@ To be replaced with a typeset check
 		block! paren! path! lit-path! set-path!
-		get-path! string! file!
+		get-path! string! file! binary!
 	] type?/word :value
 ]
 
