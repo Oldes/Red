@@ -335,7 +335,7 @@ string: context [
 		str	    [red-string!]
 		return: [integer!]
 	][
-		get-length str
+		get-length str no
 	]
 	
 	rs-skip: func [
@@ -410,6 +410,17 @@ string: context [
 		get-char p unit
 	]
 	
+	rs-reset: func [
+		str	[red-string!]
+		/local
+			s	[series!]
+	][
+		s: GET_BUFFER(str)
+		s/flags: s/flags and flag-unit-mask or Latin1
+		s/tail: s/offset
+		str/head: 0
+	]
+	
 	get-char: func [
 		p	    [byte-ptr!]
 		unit	[integer!]
@@ -474,13 +485,14 @@ string: context [
 	
 	get-length: func [
 		str		   [red-string!]
+		absolute?  [logic!]
 		return:	   [integer!]
 		/local
 			s	   [series!]
 			offset [integer!]
 	][
 		s: GET_BUFFER(str)
-		offset: str/head
+		offset: either absolute? [0][str/head]
 		if negative? offset [offset: 0]					;-- @@ beware of symbol/index leaking here...
 		(as-integer s/tail - s/offset) >> (GET_UNIT(s) >> 1) - offset
 	]
@@ -589,8 +601,8 @@ string: context [
 			UCS-2 [if cp > FFFFh [s: unicode/UCS2-to-UCS4 s]]
 			UCS-4 [0]
 		]
-
 		unit: GET_UNIT(s)
+		
 		if ((as byte-ptr! s/tail) + unit) > ((as byte-ptr! s + 1) + s/size) [
 			s: expand-series s 0
 		]
@@ -631,7 +643,7 @@ string: context [
 			move-memory 
 				head
 				head + unit
-				as-integer tail - (head + unit)
+				as-integer tail - head					;-- account for trailing NUL
 		]
 		s/tail: as red-value! tail - unit
 		str
@@ -1119,7 +1131,7 @@ string: context [
 			int/value	
 		][-1]
 		concatenate buffer str limit 0 no no
-		part - get-length str
+		part - get-length str no
 	]
 	
 	sniff-chars: func [
@@ -1238,7 +1250,7 @@ string: context [
 			nl >= 3
 			negative? curly
 			positive? quote
-			BRACES_THRESHOLD <= get-length str
+			BRACES_THRESHOLD <= get-length str no
 		][
 			open:  #"{"
 			close: #"}"
