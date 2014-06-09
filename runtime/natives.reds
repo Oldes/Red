@@ -1328,6 +1328,33 @@ natives: context [
 		out
 	]
 
+	arctangent2*: func [
+		/local
+			f	[red-float!]
+			n	[red-integer!]
+			x	[float!]
+			y	[float!]
+	][
+		f: as red-float! stack/arguments 
+		either TYPE_OF(f) <> TYPE_FLOAT [
+			n: as red-integer! f
+			y: integer/to-float n/value
+			f/header: TYPE_FLOAT
+		][
+			y: f/value
+		]
+		f: as red-float! stack/arguments + 1
+		either TYPE_OF(f) <> TYPE_FLOAT [
+			n: as red-integer! f
+			x: integer/to-float n/value
+			f/header: TYPE_FLOAT
+		][
+			x: f/value
+		]
+		f/value: atan2 y x
+		stack/set-last as red-value! f
+	]
+
 	;--- Natives helper functions ---
 
 	PI: 3.14159265358979323846264338
@@ -1392,7 +1419,6 @@ natives: context [
 		][
 			d: f/value
 		]
-
 		either all [type <> TANGENT any [d < -1.0 d > 1.0]] [
 			print-line "*** Math Error: math or number overflow"
 			f/header: TYPE_UNSET
@@ -1645,6 +1671,7 @@ natives: context [
 			:arcsine*
 			:arccosine*
 			:arctangent*
+			:arctangent2*
 			:debase*
 			:enbase*
 		]
