@@ -1339,7 +1339,6 @@ natives: context [
 		either TYPE_OF(f) <> TYPE_FLOAT [
 			n: as red-integer! f
 			y: integer/to-float n/value
-			f/header: TYPE_FLOAT
 		][
 			y: f/value
 		]
