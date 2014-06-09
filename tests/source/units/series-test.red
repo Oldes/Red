@@ -694,7 +694,7 @@ Red [
 	--assert "" = clear c2-s
 	
 	--test-- "clear-4"
-		c4-s: "?"
+		c4-s: "✐"
 	--assert "" = clear c4-s
 	
 	--test-- "clear-5"
