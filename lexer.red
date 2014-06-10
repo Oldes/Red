@@ -297,7 +297,7 @@ transcode: function [
 				| "esc"  (value: #"^(1B)")
 				| "del"	 (value: #"^(7F)")
 			]
-			| pos: [2 6 hexa-char] e: (				;-- Unicode values allowed up to 10FFFFh
+			| pos: [1 6 hexa-char] e: (				;-- Unicode values allowed up to 10FFFFh
 				value: trans-char pos e
 			)
 		] #")"
@@ -388,7 +388,7 @@ transcode: function [
 	path-rule: [
 		ahead slash (									;-- path detection barrier
 			trans-push-path stack type					;-- create empty path
-			trans-word stack copy/part s e type			;-- push 1st path element
+			trans-word stack copy/part s e word!		;-- push 1st path element
 		)
 		some [
 			slash
