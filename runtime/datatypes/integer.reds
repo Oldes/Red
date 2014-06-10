@@ -219,7 +219,7 @@ integer: context [
 		spec	[red-integer!]
 		return: [red-value!]
 		/local
-			;f	 [red-float!]
+			f	 [red-float!]
 			i    [red-integer!]
 			b    [red-binary!]
 			s    [series!]
@@ -229,11 +229,11 @@ integer: context [
 
 	][
 		switch type/value [
-			;TYPE_FLOAT [
-			;	f: as red-float! type
-			;	f/header: TYPE_FLOAT
-			;	f/value: to-float spec/value
-			;]
+			TYPE_FLOAT [
+				f: as red-float! type
+				f/header: TYPE_FLOAT
+				f/value: to-float spec/value
+			]
 			TYPE_CHAR [
 				i: as red-integer! type
 				i/header: TYPE_CHAR
