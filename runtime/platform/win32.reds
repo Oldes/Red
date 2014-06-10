@@ -103,6 +103,11 @@ platform: context [
 				mode			[int-ptr!]
 				return:			[integer!]
 			]
+			SetConsoleTextAttribute: "SetConsoleTextAttribute" [
+				handle 		[integer!]
+				attributes  [integer!]
+				return:		[integer!]
+			]
 		]
 	]
 
@@ -204,6 +209,86 @@ platform: context [
 		buffer: pbuffer
 		chars
 	]
+
+	_parse-ansi-sequence: func[
+		str 	[c-string!]
+		unit    [integer!]
+		chars   [integer!]  ;number of chars in output buffer
+		return: [integer!]
+		/local
+			cp      [byte!]
+			bytes   [integer!]
+			state   [integer!]
+			value1  [integer!]
+			value2  [integer!]
+			command [integer!]
+	][
+		if str/2 <> #"[" [return 0]
+		state:   1
+		value1:  0
+		value2:  0
+		command: 0
+
+		str: str + 2
+		bytes: 2
+		while [
+			cp: str/1
+			state > 0
+		][
+			str: str + 1
+			bytes: bytes + 1
+			;print-line [" ...st: " state " cp: " cp]
+			switch state [
+				1 2 3 [ ;value1
+					case [
+						all [cp >= #"0" cp <= #"9"][
+							value1: (value1 * 10) + (cp - #"0")
+							state: state + 1
+						]
+						cp = #";" [
+							;print-line [" ---> value1: " value1]
+							state: 5
+						]
+						cp = #"m" [ state: -9 ]
+						true [
+							state: -1
+						]
+					]
+				]
+				5 6 7 [ ;value2
+					case [
+						all [cp >= #"0" cp <= #"9"][
+							value2: (value2 * 10) + (cp - #"0")
+							state: state + 1
+						]
+						cp = #"m" [ state: -9 ]
+						cp = #";" [
+							;print-line [" ---> value2: " value2]
+							state: -9
+						]
+						true [
+							state: -1
+						]
+					]
+				]
+				4 8 [;value1 or value2 overflow
+					state: -1
+				]
+
+			]
+		]
+		switch state [
+			-9 [
+				;print-line [" ---> Set Graphics Mode:: " value1 ", " value2]
+				putbuffer chars
+				SetConsoleTextAttribute _get_osfhandle fd-stdout (value1 or value2)
+			]
+			-1 [ bytes: 0 ]
+		]
+		;print-line [" ---> result state: " state]
+		bytes
+	]
+
 	;-------------------------------------------
 	;-- Print a UCS-4 string to console
 	;-------------------------------------------
@@ -292,18 +377,32 @@ platform: context [
 		/local
 			cp    [byte!]							    ;-- codepoint
 			chars [integer!]							;-- mumber of used chars in buffer
+			skip  [integer!]
 	][
 		assert str <> null
 		chars: 0
+		skip: 0
 		while [cp: str/1  cp <> null-byte][
-			buffer/1: cp
-			buffer/2: null-byte ;this should be always 0 in Latin1
-			str: str + 1
-			chars: chars + 1
-			buffer: buffer + 2
-			if chars = 512 [  ; if the buffer has 1024 bytes, it has room for 512 chars
-				putbuffer chars
-				chars: 0
+			if cp = #"^[" [
+				skip: _parse-ansi-sequence str Latin1 chars
+			]
+			case [
+				skip = 0 [
+					buffer/1: cp
+					buffer/2: null-byte ;this should be always 0 in Latin1
+					str: str + 1
+					chars: chars + 1
+					buffer: buffer + 2
+					if chars = 512 [  ; if the buffer has 1024 bytes, it has room for 512 chars
+						putbuffer chars
+						chars: 0
+					]
+				]
+				skip > 0 [
+					chars: 0
+					str: str + skip
+					skip: 0
+				]
 			]
 		]
 		putbuffer chars
