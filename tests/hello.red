@@ -10,8 +10,18 @@ Red [
 	}
 ]
 
+
 print "Hello, world!"
 print "Χαῖρε, κόσμε!"
 print "你好, 世界"
 print "Dobrý den světe"
+
+ansi-inverse: "^[[7m"
+ansi-red:     "^[[37;41m"
+ansi-reset:   "^[[0m"
+
+
+print [ansi-inverse "Inverse text" ansi-inverse]
+print [ansi-red "Some Red text" ansi-reset]
+
 
