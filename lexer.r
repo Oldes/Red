@@ -41,6 +41,7 @@ lexer: context [
 
 	hexa:  union digit charset "ABCDEF"
 	hexa-char: union hexa charset "abcdef"
+	bit: charset "01"
 	
 	;-- UTF-8 encoding rules from: http://tools.ietf.org/html/rfc3629#section-4
 	UTF-8-BOM: #{EFBBBF}
@@ -217,6 +218,8 @@ lexer: context [
 	
 	hexa-rule: [2 8 hexa e: #"h" (type: integer!)]
 
+	bit-rule: [2 32 bit e: #"b" (type: integer!)]
+
 	sticky-word-rule: [
 		pos: [										;-- protection rule from typo with sticky words
 			[integer-end | ws-no-count | end] (fail?: none)
@@ -376,6 +379,7 @@ lexer: context [
 			| decimal-rule	  (stack/push load-decimal	 copy/part s e)
 			| tuple-rule	  (stack/push to tuple!		 copy/part s e)
 			| hexa-rule		  (stack/push decode-hexa	 copy/part s e)
+			| bit-rule		  (stack/push decode-bit	 copy/part s e)
 			| word-rule		  (stack/push to type value)
 			| lit-word-rule	  (stack/push to type value)
 			| get-word-rule	  (stack/push to type value)
@@ -444,7 +448,7 @@ lexer: context [
 			"^/*** line: " line
 			"^/*** at: " mold copy/part pos 40
 		]
-		either encap? [quit][halt]
+		either encap? [quit][ask "[press enter]" halt]
 	]
 
 	add-line-markers: func [blk [block!]][	
@@ -528,6 +532,10 @@ lexer: context [
 	
 	decode-hexa: func [s [string!]][
 		to integer! debase/base s 16
+	]
+
+	decode-bit: func [s [string!]][
+		to integer! debase/base head insert/dup s #"0" 32 - length? s 2
 	]
 
 	load-number: func [s [string!]][

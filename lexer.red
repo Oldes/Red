@@ -114,6 +114,43 @@ trans-hexa: routine [
 	n
 ]
 
+trans-bit: routine [
+	start	[string!]
+	end		[string!]
+	return: [integer!]
+	/local
+		s	  [series!]
+		unit  [integer!]
+		p	  [byte-ptr!]
+		head  [byte-ptr!]
+		p4	  [int-ptr!]
+		n	  [integer!]
+		power [integer!]
+		cp	  [byte!]
+][
+	s: GET_BUFFER(start)
+	unit: GET_UNIT(s)
+	
+	p: (string/rs-head end) - unit
+	head: string/rs-head start
+	
+	n: 0
+	power: 0
+	while [p >= head][
+		cp: switch unit [
+			Latin1 [p/value]
+			UCS-2  [as-byte ((as-integer p/2) << 8 + p/1)]
+			UCS-4  [p4: as int-ptr! p as-byte p4/value]
+		]
+		if cp = #"1" [
+			n: n + (1 << power)
+		]
+		power: power + 1
+		p: p - unit
+	]
+	n
+]
+
 trans-char: routine [
 	start	[string!]
 	end		[string!]
@@ -197,9 +234,9 @@ transcode: function [
 		new s e c hex pos value cnt type process
 		digit hexa-upper hexa-lower hexa hexa-char not-word-char not-word-1st
 		not-file-char not-str-char not-mstr-char caret-char
-		non-printable-char integer-end ws-ASCII ws-U+2k control-char
+		non-printable-char integer-end ws-ASCII ws-U+2k control-char bit
 ][
-	cs:		[- - - - - - - - - - - - - - - -]			;-- memoized bitsets
+	cs:		[- - - - - - - - - - - - - - - - -]			;-- memoized bitsets
 	stack:	clear []
 	count?:	yes											;-- if TRUE, lines counter is enabled
 	line: 	1
@@ -246,12 +283,13 @@ transcode: function [
 		cs/14: charset " ^-^M"							;-- ws-ASCII, ASCII common whitespaces
 		cs/15: charset [#"^(2000)" - #"^(200A)"]			;-- ws-U+2k, Unicode spaces in the U+2000-U+200A range
 		cs/16: charset [#"^(00)" - #"^(1F)"] 			;-- ASCII control characters
+		cs/17: charset "01"                             ;-- bit
 
 	]
 	set [
 		digit hexa-upper hexa-lower hexa hexa-char not-word-char not-word-1st
 		not-file-char not-str-char not-mstr-char caret-char
-		non-printable-char integer-end ws-ASCII ws-U+2k control-char
+		non-printable-char integer-end ws-ASCII ws-U+2k control-char bit
 	] cs
 	
 	;-- Whitespaces list from: http://en.wikipedia.org/wiki/Whitespace_character
@@ -442,6 +480,8 @@ transcode: function [
 	]
 
 	hexa-rule: [2 8 hexa e: #"h"]
+
+	bit-rule: [2 32 bit e: #"b"]
 	
 	integer-number-rule: [
 		opt [#"-" | #"+"] digit any [digit | #"'" digit] e:
@@ -528,6 +568,7 @@ transcode: function [
 			| float-rule		if (value: trans-float s e ) (trans-store stack value)
 			| binary-rule	  	(trans-store stack do trans-binary)
 			| hexa-rule			(trans-store stack trans-hexa s e)
+			| bit-rule			(trans-store stack trans-bit s e)
 			| word-rule
 			| lit-word-rule
 			| get-word-rule
