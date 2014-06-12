@@ -405,6 +405,10 @@ platform: context [
 							;@@ todo
 							state: -1
 						]
+						cp = #"J" [ ;-- Clear screen from cursor down.
+							;@@ todo
+							state: -1
+						]
 						any [cp = #"H" cp = #"f"] [
 							set-console-cursor 0
 							state: -1
@@ -497,6 +501,10 @@ platform: context [
 							value1: 0
 							value2: 0
 							state: 1
+						]
+						any [cp = #"H" cp = #"f"] [ ;-- Cursor Position.
+							set-console-cursor (value1 and 0000FFFFh) or (value2 << 16)
+							state: -1
 						]
 						true [ state: -1 ]
 					]
