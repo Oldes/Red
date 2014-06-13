@@ -273,8 +273,14 @@ float: context [
 		spec	[red-float!]
 		return: [red-value!]
 		/local
-			int [red-integer!]
-			f	[float!]
+			int  [red-integer!]
+			f	 [float!]
+			b    [red-binary!]
+			p    [byte-ptr!]
+			p2   [byte-ptr!]
+			tail [byte-ptr!]
+			s    [series!]
+
 	][
 		f: spec/value
 		switch type/value [
@@ -282,6 +288,20 @@ float: context [
 				int: as red-integer! type
 				int/header: TYPE_INTEGER
 				int/value: to-integer either f < 0.0 [f + 0.499999999999999][f - 0.499999999999999]
+			]
+			TYPE_BINARY [
+				b: binary/make-at as cell! type 8
+				p: (as byte-ptr! spec)
+				tail: p + 8
+				p: p + 16
+				s: GET_BUFFER(b)
+				p2: as byte-ptr! s/tail
+				while [p > tail][                  ;@@ I wish to have `loop` in Red/System
+					p2/1: p/0
+					p2: p2 + 1
+					p: p - 1
+				]
+				s/tail: as cell! p2
 			]
 			default [
 				print-line "** Script error: Invalid argument for TO float!"
