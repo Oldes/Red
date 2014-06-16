@@ -61,12 +61,11 @@ string: context [
 
 	to-float: func [
 		start		[red-string!]
-		len			[integer!]
-		return:		[float!]
 		/local
 			str		[series!]
 			cp		[integer!]
 			unit	[integer!]
+			len		[integer!]
 			s0		[byte-ptr!]
 			p4	 	[int-ptr!]
 			p		[byte-ptr!]
@@ -74,6 +73,11 @@ string: context [
 			cur		[byte-ptr!]
 			f		[float!]
 	][
+		len:  string/get-length start no
+		if zero? len [
+			print-line "** Script error: TO action, empty string"
+			SET_RETURN(none-value) exit
+		]
 		str:  GET_BUFFER(start)
 		unit: GET_UNIT(str)
 		p:	  (as byte-ptr! str/offset) + (start/head << (unit >> 1))
@@ -92,7 +96,7 @@ string: context [
 				all [cp >= 30h cp <= 39h] [				;-- digits
 					cur/1: as-byte cp
 				]
-				any [									;-- #"-" #"+" #".", #"E", #"e"
+				any [									;-- #"-" #"+" #"." #"E" #"e"
 					cp = 2Dh cp = 2Bh cp = 2Eh cp = 45h cp = 65h
 					cp = 2Ch							;-- #","
 				][
@@ -100,18 +104,80 @@ string: context [
 				]
 				cp = 27h [cur: cur - 1]					;-- skip #"'"
 				true [
-					cur/1: #"^@"
-					print-line ["** Syntax error: invalid decimal -- " as c-string! s0]
-					return 0.0							;@@ cause an error
+					cur/1: as-byte cp
+					cur/2: #"^@"
+					print-line ["** Script error: cannot TO float! from: " as c-string! s0]
+					SET_RETURN(none-value) exit
 				]
 			]
 			cur: cur + 1
 			p: p + unit
 		]
 		cur/1: #"^@"
-		f: red-dtoa/string-to-float s0 cur
+		float/box red-dtoa/string-to-float s0 cur
 		if len > 31 [free s0]
-		f
+	]
+
+	to-integer: func [
+		start  [red-string!]
+		/local
+			str	 [series!]
+			unit [integer!]
+			c	 [integer!]
+			n	 [integer!]
+			m	 [integer!]
+			len  [integer!]
+			p	 [byte-ptr!]
+			neg? [logic!]
+	][
+		len:  string/get-length start no
+		if zero? len [
+			print-line "** Script error: TO action, empty string"
+			SET_RETURN(none-value) exit
+		]
+		str:  GET_BUFFER(start)
+		unit: GET_UNIT(str)
+		p:	  (as byte-ptr! str/offset) + (start/head << (unit >> 1))
+		neg?: no
+
+		c: string/get-char p unit
+		if any [
+			c = as-integer #"+"
+			c = as-integer #"-"
+		][
+			neg?: c = as-integer #"-"
+			p: p + unit
+			len: len - 1
+		]
+		n: 0
+		until [
+			c: (string/get-char p unit) - #"0"
+			unless any [
+				all [0 <= c c <= 9]
+				c = -9											;-- #"'"
+			][
+				print-line ["** Script error: cannot TO integer! from: " as-byte c]
+				SET_RETURN(none-value) exit
+			]
+			if c >= 0 [											;-- skip #"'"
+				m: n * 10
+				if m < n [SET_RETURN(none-value) exit]			;-- return NONE on overflow
+				n: m
+
+				if all [n = 2147483640 c = 8][
+					integer/box 80000000h						;-- special exit trap for -2147483648
+					exit
+				]
+
+				m: n + c
+				if m < n [SET_RETURN(none-value) exit]			;-- return NONE on overflow
+				n: m
+			]
+			p: p + unit
+			len: len - 1
+			zero? len
+		]
+		integer/box either neg? [0 - n][n]
 	]
 
 	to-hex: func [
@@ -485,8 +551,8 @@ string: context [
 			UCS-2 [if cp > FFFFh [s: unicode/UCS2-to-UCS4 s]]
 			UCS-4 [0]
 		]
+
 		unit: GET_UNIT(s)
-		
 		if ((as byte-ptr! s/tail) + unit) > ((as byte-ptr! s + 1) + s/size) [
 			s: expand-series s 0
 		]
@@ -527,7 +593,7 @@ string: context [
 			move-memory 
 				head
 				head + unit
-				as-integer tail - head					;-- account for trailing NUL
+				as-integer tail - (head + unit)
 		]
 		s/tail: as red-value! tail - unit
 		str
@@ -997,7 +1063,7 @@ string: context [
 		]
 		as red-value! str
 	]
-	
+
 	to: func [
 		type	[red-datatype!]
 		spec	[red-string!]
@@ -1036,9 +1102,15 @@ string: context [
 				bin: binary/make-at as cell! type len
 				binary/concatenate-str bin spec -1 1 no
 			]
+			TYPE_INTEGER [
+				to-integer spec
+			]
+			TYPE_FLOAT [
+				to-float spec
+			]
 
 			default [
-				print-line "** Script error: Invalid argument for TO!"
+				print-line "** Script error: Invalid argument for TO string!"
 				type/header: TYPE_UNSET
 			]
 		]

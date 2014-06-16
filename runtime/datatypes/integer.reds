@@ -226,13 +226,17 @@ integer: context [
 			p    [byte-ptr!]
 			p2   [byte-ptr!]
 			tail [byte-ptr!]
-
+			buf [red-string!]
 	][
 		switch type/value [
 			TYPE_FLOAT [
 				f: as red-float! type
 				f/header: TYPE_FLOAT
 				f/value: to-float spec/value
+			]
+			TYPE_STRING [
+				buf: string/rs-make-at as cell! type 1			;-- 16 bits string
+				string/concatenate-literal buf form-signed spec/value
 			]
 			TYPE_CHAR [
 				i: as red-integer! type
