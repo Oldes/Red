@@ -1076,19 +1076,19 @@ string: context [
 			s    [series!]
 			s2   [series!]
 			p    [byte-ptr!]
-			p2   [byte-ptr!]
 			unit [integer!]
 			node [node!]
 			offset [integer!]
 	][
 		switch type/value [
-			TYPE_STRING [
+			TYPE_STRING
+			TYPE_URL
+			TYPE_FILE [
 				s: GET_BUFFER(spec)
 				unit: GET_UNIT(s)
 
 				offset: spec/head << (unit >> 1)
 				len: (as-integer s/tail - s/offset) - offset
-
 
 				node: 	alloc-bytes len + unit
 				s2: as series! node/value
@@ -1100,10 +1100,9 @@ string: context [
 					len
 
 				s2/tail: as cell! (as byte-ptr! s2/offset) + len
-
 				
 				str: as red-string! as cell! type
-				str/header: TYPE_STRING
+				str/header: type/value
 				str/head: 0
 				str/node: node
 
@@ -1131,6 +1130,15 @@ string: context [
 			]
 			TYPE_FLOAT [
 				to-float spec
+			]
+			TYPE_WORD
+			TYPE_REFINEMENT
+			TYPE_LIT_WORD
+			TYPE_SET_WORD
+			TYPE_GET_WORD [
+				set-type
+					as red-value! word/make-at symbol/make-alt spec as cell! type
+					type/value
 			]
 
 			default [
