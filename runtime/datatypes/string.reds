@@ -1074,15 +1074,39 @@ string: context [
 			bin  [red-binary!]
 			len  [integer!]
 			s    [series!]
+			s2   [series!]
 			p    [byte-ptr!]
+			p2   [byte-ptr!]
 			unit [integer!]
+			node [node!]
+			offset [integer!]
 	][
 		switch type/value [
 			TYPE_STRING [
 				s: GET_BUFFER(spec)
 				unit: GET_UNIT(s)
-				--NOT_IMPLEMENTED--
-				;str: string/rs-make-at type 16
+
+				offset: spec/head << (unit >> 1)
+				len: (as-integer s/tail - s/offset) - offset
+
+
+				node: 	alloc-bytes len + unit
+				s2: as series! node/value
+				s2/flags: s/flags							;@@ filter flags?
+
+				copy-memory 
+					as byte-ptr! s2/offset
+					(as byte-ptr! s/offset) + offset
+					len
+
+				s2/tail: as cell! (as byte-ptr! s2/offset) + len
+
+				
+				str: as red-string! as cell! type
+				str/header: TYPE_STRING
+				str/head: 0
+				str/node: node
+
 			]
 			TYPE_CHAR [
 				s: GET_BUFFER(spec)
