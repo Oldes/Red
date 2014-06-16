@@ -1136,9 +1136,14 @@ string: context [
 			TYPE_LIT_WORD
 			TYPE_SET_WORD
 			TYPE_GET_WORD [
-				set-type
-					as red-value! word/make-at symbol/make-alt spec as cell! type
-					type/value
+				either 0 = string/get-length spec no [
+					print-line "** Script error: content too short (or just whitespace)"
+					type/header: TYPE_UNSET
+				][
+					set-type
+						as red-value! word/make-at symbol/make-alt spec as cell! type
+						type/value
+				]
 			]
 
 			default [
