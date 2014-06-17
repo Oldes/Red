@@ -66,6 +66,44 @@ none: context [
 		cell
 	]
 	
+	to: func [
+		type	[red-datatype!]
+		spec	[red-value!]
+		return: [red-value!]
+		/local
+			proto   [integer!]
+			blk     [red-block!]
+	][
+		proto: type/value
+		switch proto [
+			TYPE_NONE [
+				stack/set-last as red-value! spec
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 0
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_GET_PATH
+			TYPE_SET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			default [
+				print-line "** Script error: Invalid argument for TO none!"
+				type/header: TYPE_UNSET
+			]
+		]
+		as red-value! type
+	]
+
 	form: func [
 		value	[red-none!]
 		buffer	[red-string!]
@@ -187,7 +225,7 @@ none: context [
 			:make
 			null			;random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
 			null			;eval-path

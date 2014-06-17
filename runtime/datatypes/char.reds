@@ -83,25 +83,72 @@ char: context [
 		spec	[red-integer!]
 		return: [red-value!]
 		/local
-			int  [red-integer!]
-			str  [red-string!]
-			bin  [red-binary!]
+			int   [red-integer!]
+			str   [red-string!]
+			bin   [red-binary!]
+			f     [red-float!]
+			blk   [red-block!]
+			proto [integer!]
 	][
-		switch type/value [
-			TYPE_INTEGER [
+		proto: type/value
+		switch proto [
+			TYPE_INTEGER
+			TYPE_CHAR [
 				int: as red-integer! type
-				int/header: TYPE_INTEGER
+				int/header: type/value
 				int/value: spec/value
 			]
-			TYPE_STRING [                                      ;@@ optimize this
+			TYPE_STRING
+			TYPE_FILE
+			TYPE_URL [                                      ;@@ optimize this
 				str: string/rs-make-at as cell! type 16
 				actions/form as red-value! spec str null 0
+				set-type as red-value! type proto
 			]
 			TYPE_BINARY [
 				bin: binary/make-at as cell! type 1
 				binary/append-char GET_BUFFER(bin) spec/value
 			]
-
+			TYPE_FLOAT [
+				f: as red-float! type
+				f/header: TYPE_FLOAT
+				f/value: integer/to-float spec/value
+			]
+			TYPE_BITSET [
+				bitset/make as red-value! type as red-value! spec
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_GET_PATH
+			TYPE_SET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			TYPE_WORD
+			TYPE_REFINEMENT
+			TYPE_LIT_WORD
+			TYPE_SET_WORD
+			TYPE_GET_WORD
+			TYPE_ISSUE [
+				str: string/rs-make-at as cell! type 1
+				actions/form as red-value! spec str null 0
+				set-type
+					as red-value! word/make-at symbol/make-alt str as cell! type
+					proto
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
 			default [
 				print-line "** Script error: Invalid argument for TO char!"
 				type/header: TYPE_UNSET

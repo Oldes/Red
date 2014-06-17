@@ -536,6 +536,66 @@ block: context [
 		as red-value! blk
 	]
 	
+	to: func [
+		type	[red-datatype!]
+		spec	[red-block!]
+		return: [red-value!]
+		/local
+			str [red-string!]
+			bin [red-binary!]
+			proto [integer!]
+			res   [red-value!]
+	][
+		proto: type/value
+		switch proto [
+			TYPE_STRING
+			TYPE_FILE
+			TYPE_URL
+			;TYPE_EMAIL
+			[
+				str: string/rs-make-at as cell! type 1
+				string/insert str as cell! spec null no null true
+				set-type as red-value! type proto 
+			]
+			TYPE_BINARY [
+				bin: binary/make-at as cell! type 1
+				binary/insert bin as cell! spec null no null true
+			]
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_SET_PATH
+			TYPE_GET_PATH
+			TYPE_PAREN
+			TYPE_BLOCK [
+			;	either TYPE_OF(spec) = proto [
+					res: as red-value! block/copy as red-block! spec as red-path! type null no null
+					res/header: proto
+			;	][
+			;		set-type as red-value! spec proto 
+			;		stack/set-last as red-value! spec
+			;	]
+			]
+			TYPE_BITSET [
+				bitset/make as red-value! type as red-value! spec
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
+			default [
+				print-line "** Script error: Invalid argument for TO block!"
+				type/header: TYPE_UNSET
+			]
+		]
+		as red-value! type
+	]
+
 	form: func [
 		blk		  [red-block!]
 		buffer	  [red-string!]
@@ -1111,6 +1171,9 @@ block: context [
 			any [
 				TYPE_OF(value) = TYPE_BLOCK				;@@ replace it with: typeset/any-block?
 				TYPE_OF(value) = TYPE_PATH				;@@ replace it with: typeset/any-block?
+				TYPE_OF(value) = TYPE_LIT_PATH			;@@ replace it with: typeset/any-block?
+				TYPE_OF(value) = TYPE_SET_PATH			;@@ replace it with: typeset/any-block?
+				TYPE_OF(value) = TYPE_GET_PATH			;@@ replace it with: typeset/any-block?
 			]
 		]
 		size: either values? [
@@ -1546,7 +1609,7 @@ block: context [
 			:make
 			:random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
 			:eval-path

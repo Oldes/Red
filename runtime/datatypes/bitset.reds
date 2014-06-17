@@ -368,6 +368,7 @@ bitset: context [
 					int: as red-integer! spec
 					int/value
 				]
+				if max < 0 [return 0] ;@@ throw range error once will be available!
 				unless op = OP_MAX [
 					s: GET_BUFFER(bits)
 					not?: FLAG_NOT?(s)
@@ -390,7 +391,9 @@ bitset: context [
 					]
 				]
 			]
-			TYPE_STRING [
+			TYPE_STRING
+			TYPE_URL
+			TYPE_FILE [
 				unless op = OP_MAX [
 					s: GET_BUFFER(bits)
 					not?: FLAG_NOT?(s)
@@ -488,6 +491,74 @@ bitset: context [
 	
 	;-- Actions --
 	
+	to: func [
+		type	[red-datatype!]
+		spec	[red-bitset!]
+		return: [red-value!]
+		/local
+			bin    [red-binary!]
+			s      [series!]
+			buffer [series!]
+			size   [integer!]
+			node   [node!]
+			str    [red-string!]
+			blk    [red-block!]
+			proto  [integer!]
+	][
+		proto: type/value
+		switch proto [
+			TYPE_BINARY [
+				bin: as red-binary! type
+				s: as series! spec/node/value
+				size: (as integer! s/tail) - (as byte-ptr! s/offset)
+				node: alloc-bytes size
+				buffer: as series! node/value
+				unless zero? size [
+					copy-memory 
+						as byte-ptr! buffer/offset
+						as byte-ptr! s/offset
+						size
+					buffer/tail: as cell! (as byte-ptr! buffer/offset) + size
+				]
+				bin/header: TYPE_BINARY
+				bin/head: 0
+				bin/node: node
+			]
+			TYPE_STRING
+			TYPE_FILE
+			TYPE_URL [
+				str: string/rs-make-at as cell! type 1
+				form spec str null 0
+				type/header: proto
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_SET_PATH
+			TYPE_GET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				set-type as red-value! type proto 
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
+			default [
+				print-line "** Script error: Invalid argument for TO bitset!"
+				type/header: TYPE_UNSET
+			]
+		]
+		as red-value! type
+	]
+
 	make: func [
 		proto	[red-value!]
 		spec	[red-value!]
@@ -499,48 +570,89 @@ bitset: context [
 			blk	 [red-block!]
 			w	 [red-word!]
 			s	 [series!]
+			s2   [series!]
 			op	 [integer!]
 			not? [logic!]
 			byte [byte!]
+			type [integer!]
+			bin  [red-binary!]
+			str  [red-string!]
+			offset [integer!]
+			node   [node!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "bitset/make"]]
 		
-		bits: as red-bitset! stack/push*
+		bits: as red-bitset! proto
 		bits/header: TYPE_BITSET						;-- implicit reset of all header flags
 
-		either TYPE_OF(spec) = TYPE_INTEGER [
-			int: as red-integer! spec
-			size: int/value
-			if size <= 0 [print-line "*** Make Error: bitset invalid integer argument!"]
-			size: either zero? (size and 7) [size][size + 8 and -8]	;-- round to byte multiple
-			size: size >> 3								;-- convert to bytes
-			bits/node: alloc-bytes-filled size null-byte
-			
-			s: GET_BUFFER(bits)
-			s/tail: as cell! ((as byte-ptr! s/offset) + size)
-		][
-			not?: no
-			
-			if TYPE_OF(spec) = TYPE_BLOCK [
-				blk: as red-block! spec
-				w: as red-word! block/rs-head blk
-				not?: all [
-					TYPE_OF(w) = TYPE_WORD
-					w/symbol = words/not*
+		type: TYPE_OF(spec)
+		case [
+			type = TYPE_INTEGER [
+				int: as red-integer! spec
+				size: int/value
+				if size <= 0 [
+					;print-line "*** Make Error: bitset invalid integer argument!"
+					;@@ as there is no real error! yet, let it pass with size 1
+					size: 0
 				]
-				if not? [blk/head: blk/head + 1]		;-- skip NOT
-			]
-			byte: either not? [#"^(FF)"][null-byte]
-			op: either not? [OP_CLEAR][OP_SET]
-			
-			size: process spec null OP_MAX no			;-- 1st pass: determine size
-			bits/node: alloc-bytes-filled size byte
-			if not? [
+				size: either zero? (size and 7) [size][size + 8 and -8]	;-- round to byte multiple
+				size: size >> 3								;-- convert to bytes
+				bits/node: alloc-bytes-filled size null-byte
+				
 				s: GET_BUFFER(bits)
-				s/flags: s/flags or flag-bitset-not
+				s/tail: as cell! ((as byte-ptr! s/offset) + size)
 			]
-			process spec bits op no						;-- 2nd pass: set bits
-			if not? [blk/head: blk/head - 1]			;-- restore series argument head		
+			type = TYPE_BINARY [
+				bin: as red-binary! spec
+				s: GET_BUFFER(bin)
+				offset: bin/head
+				size: (as-integer s/tail - s/offset) - offset
+				node: 	alloc-bytes size
+				s2: as series! node/value
+				s2/flags: s/flags							;@@ filter flags?
+				unless zero? size [
+					copy-memory 
+						as byte-ptr! s2/offset
+						(as byte-ptr! s/offset) + offset
+						size
+					s2/tail: as cell! (as byte-ptr! s2/offset) + size
+				]
+				bits/node: node
+			]
+			true [
+				if all [
+					ANY_SERIES?(type)
+					zero? actions/length? spec
+				][
+					int: as red-integer! spec
+					int/header: TYPE_INTEGER
+					int/value: 0
+					return make proto as red-value! int
+				]
+				not?: no
+				
+				if type = TYPE_BLOCK [
+					blk: as red-block! spec
+					w: as red-word! block/rs-head blk
+
+					not?: all [
+						TYPE_OF(w) = TYPE_WORD
+						w/symbol = words/not*
+					]
+					if not? [blk/head: blk/head + 1]		;-- skip NOT
+				]
+				byte: either not? [#"^(FF)"][null-byte]
+				op: either not? [OP_CLEAR][OP_SET]
+				
+				size: process spec null OP_MAX no			;-- 1st pass: determine size
+				bits/node: alloc-bytes-filled size byte
+				if not? [
+					s: GET_BUFFER(bits)
+					s/flags: s/flags or flag-bitset-not
+				]
+				process spec bits op no						;-- 2nd pass: set bits
+				if not? [blk/head: blk/head - 1]			;-- restore series argument head		
+			]
 		]
 		bits
 	]
@@ -885,7 +997,7 @@ bitset: context [
 			:make
 			null			;random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
 			:eval-path

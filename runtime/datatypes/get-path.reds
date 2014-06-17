@@ -120,7 +120,7 @@ get-path: context [
 			:make
 			INHERIT_ACTION	;random
 			null			;reflect
-			null			;to
+			INHERIT_ACTION	;to
 			:form
 			:mold
 			INHERIT_ACTION	;eval-path

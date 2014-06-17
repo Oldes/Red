@@ -13,9 +13,10 @@
 
 ===start-group=== "basic tests"
 	
+	--test-- "basic-0"	--assert "make bitset! #{}" = mold make bitset! 0
 	--test-- "basic-1"	--assert "make bitset! #{00}" = mold make bitset! 1
-	--test-- "basic-2"	--assert "make bitset! #{00}" = mold charset ""
-	--test-- "basic-3"	--assert "make bitset! #{00}" = mold charset []
+	--test-- "basic-2"	--assert "make bitset! #{}" = mold charset ""
+	--test-- "basic-3"	--assert "make bitset! #{}" = mold charset []
 	--test-- "basic-4"	--assert "make bitset! #{80}" = mold charset #"^(00)"
 	--test-- "basic-5"	--assert "make bitset! #{40}" = mold charset #"^(01)"
 	--test-- "basic-6"	--assert "make bitset! #{000000000000FFC0}" = mold charset "0123456789"

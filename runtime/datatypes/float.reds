@@ -284,17 +284,28 @@ float: context [
 			tail [byte-ptr!]
 			s    [series!]
 			buf [red-string!]
+			blk  [red-block!]
+			proto [integer!]
 	][
 		f: spec/value
-		switch type/value [
+		proto: type/value
+		switch proto [
 			TYPE_INTEGER [
 				int: as red-integer! type
 				int/header: TYPE_INTEGER
 				int/value: to-integer either f < 0.0 [f + 0.499999999999999][f - 0.499999999999999]
 			]
-			TYPE_STRING [
-				buf: string/rs-make-at as cell! type 1			;-- 16 bits string
+			TYPE_FLOAT [
+				stack/set-last as red-value! spec
+			]
+			TYPE_STRING
+			TYPE_FILE								;@@ do we really want to convert float! to file!, url! or email! as REBOL does?
+			TYPE_URL
+			;TYPE_EMAIL
+			[
+				buf: string/rs-make-at as cell! type 1
 				string/concatenate-literal buf form-float f
+				type/header: proto
 			]
 			TYPE_BINARY [
 				b: binary/make-at as cell! type 8
@@ -309,6 +320,36 @@ float: context [
 					p: p - 1
 				]
 				s/tail: as cell! p2
+			]
+			TYPE_CHAR [
+				either f < 0.0 [
+					print-line ["** Script error: cannot MAKE/TO char! from: " f]
+					type/header: TYPE_UNSET
+				][
+					int: as red-integer! type
+					int/header: TYPE_CHAR
+					int/value: to-integer f - 0.499999999999999
+				]
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH						;@@ do we really want to convert float! to paths as REBOL does?
+			TYPE_SET_PATH
+			TYPE_GET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
 			]
 			default [
 				print-line "** Script error: Invalid argument for TO float!"

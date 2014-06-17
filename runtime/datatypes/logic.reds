@@ -151,6 +151,54 @@ logic: context [
 		logic
 	]
 
+	to: func [
+		type	[red-datatype!]
+		spec	[red-logic!]
+		return: [red-value!]
+		/local
+			proto   [integer!]
+			blk     [red-block!]
+			f       [red-float!]
+			i       [red-integer!]
+	][
+		proto: type/value
+		switch proto [
+			TYPE_LOGIC [
+				stack/set-last as red-value! spec
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_GET_PATH
+			TYPE_SET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			TYPE_INTEGER [
+				i: as red-integer! type
+				type/header: TYPE_INTEGER
+				i/value: either spec/value [1][0]
+			]
+			TYPE_FLOAT [
+				f: as red-float! type
+				type/header: TYPE_FLOAT
+				f/value: either spec/value [1.0][0.0]
+			]
+			default [
+				print-line "** Script error: Invalid argument for TO logic!"
+				type/header: TYPE_UNSET
+			]
+		]
+		as red-value! type
+	]
 	form: func [
 		boolean	[red-logic!]
 		buffer	[red-string!]
@@ -265,7 +313,7 @@ logic: context [
 			:make
 			:random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
 			null			;eval-path

@@ -55,6 +55,30 @@ unset: context [
 		cell
 	]
 
+	to: func [
+		type	[red-datatype!]
+		spec	[red-value!]
+		return: [red-value!]
+	][
+		switch type/value [
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 0
+			]
+			default [
+				print-line "** Script error: Invalid argument for TO unset!"
+				type/header: TYPE_UNSET
+			]
+		]
+		as red-value! type
+	]
+
 	form: func [
 		value	[red-unset!]
 		buffer	[red-string!]
@@ -118,7 +142,7 @@ unset: context [
 			:make
 			null			;random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
 			null			;eval-path

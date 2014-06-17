@@ -140,7 +140,7 @@ file: context [
 			:make
 			INHERIT_ACTION	;random
 			null			;reflect
-			null			;to
+			INHERIT_ACTION	;to
 			INHERIT_ACTION	;form
 			:mold
 			INHERIT_ACTION	;eval-path

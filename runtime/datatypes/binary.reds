@@ -26,13 +26,13 @@ binary: context [
 		return:  [red-binary!]
 		/local
 			bin  [red-binary!]
-			s 	   [series!]
+			s 	 [series!]
 			p    [byte-ptr!]
 	][
 		bin: as red-binary! ALLOC_TAIL(blk)
 		bin/header: TYPE_BINARY							;-- implicit reset of all header flags
 		bin/head: 0
-		bin/node: alloc-series size 1 0
+		bin/node: alloc-series either size <= 0 [1][size] 1 0 ;-- always allocate at least 1 byte
 		s: as series! bin/node/value
 		p: as byte-ptr! s/offset
 		copy-memory	p as byte-ptr! src size
@@ -568,21 +568,47 @@ binary: context [
 		spec	[red-binary!]
 		return: [red-value!]
 		/local
-			;f	 [red-float!]
 			i    [red-integer!]
 			str  [red-string!]
 			bin  [red-binary!]
 			len  [integer!]
+			pad  [integer!]
 			s    [series!]
 			p    [byte-ptr!]
+			p2   [byte-ptr!]
+			tail [byte-ptr!]
+			blk   [red-block!]
+			ipt    [int-ptr!]
+			proto [integer!]
+			log   [red-logic!]
 	][
-		switch type/value [
-			;TYPE_FLOAT [
-			;	f: as red-float! type
-			;	f/header: TYPE_FLOAT
-			;	f/value: to-float spec/value
-			;]
-			TYPE_STRING [
+		proto: type/value
+		switch proto [
+			TYPE_FLOAT [
+				s: GET_BUFFER(spec)
+				p: (as byte-ptr! s/offset) + spec/head
+				len: (as-integer s/tail) - p    ;-- size of binary! source
+				p2: (as byte-ptr! type) + 8     ;-- pointer to float! value region
+				either len >= 8 [
+					tail: p + 8
+				][
+					;-- zero fill float! value region using 32-bit accesses
+					ipt: as int-ptr! p2
+					ipt/value: 0
+					ipt: ipt + 1
+					ipt/value: 0
+					tail: p + len
+				]
+				while [tail > p][    ;-- copy bytes in reversed order
+					tail: tail - 1
+					p2/1: tail/1
+					p2: p2 + 1
+				]
+				type/header: TYPE_FLOAT
+			]
+			TYPE_STRING
+			TYPE_URL
+			TYPE_FILE [
 				len: binary/get-length spec
 				str: string/rs-make-at as cell! type len
 				s: GET_BUFFER(spec)
@@ -612,9 +638,31 @@ binary: context [
 				bin: binary/make-at as cell! type len
 				binary/concatenate-bin bin spec -1 1 no
 			]
-
+			TYPE_BITSET [
+				bitset/make as red-value! type as red-value! spec
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_SET_PATH
+			TYPE_GET_PATH
+			TYPE_LIT_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				set-type as red-value! type proto 
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
 			default [
-				print-line "** Script error: Invalid argument for TO integer!"
+				print-line "** Script error: Invalid argument for TO binary!"
 				type/header: TYPE_UNSET
 			]
 		]

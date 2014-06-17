@@ -1069,18 +1069,23 @@ string: context [
 		spec	[red-string!]
 		return: [red-value!]
 		/local
-			i    [red-integer!]
-			str  [red-string!]
-			bin  [red-binary!]
-			len  [integer!]
-			s    [series!]
-			s2   [series!]
-			p    [byte-ptr!]
-			unit [integer!]
-			node [node!]
+			i      [red-integer!]
+			str    [red-string!]
+			bin    [red-binary!]
+			len    [integer!]
+			s      [series!]
+			s2     [series!]
+			p      [byte-ptr!]
+			unit   [integer!]
+			node   [node!]
 			offset [integer!]
+			blk    [red-block!]
+			proto  [integer!]
+			wrd    [red-word!]
+			cell   [cell!]
 	][
-		switch type/value [
+		proto: type/value
+		switch proto [
 			TYPE_STRING
 			TYPE_URL
 			TYPE_FILE [
@@ -1102,7 +1107,7 @@ string: context [
 				s2/tail: as cell! (as byte-ptr! s2/offset) + len
 				
 				str: as red-string! as cell! type
-				str/header: type/value
+				str/header: proto
 				str/head: 0
 				str/node: node
 
@@ -1125,6 +1130,27 @@ string: context [
 				bin: binary/make-at as cell! type len
 				binary/concatenate-str bin spec -1 1 no
 			]
+			TYPE_BLOCK
+			TYPE_PAREN [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_SET_PATH
+			TYPE_GET_PATH [
+				cell: declare cell!
+				wrd: as red-word! cell
+				wrd/header: TYPE_WORD							;-- implicit reset of all header flags
+				wrd/ctx: 	global-ctx
+				wrd/symbol: symbol/make-alt spec    ;@@ maybe there should be a test if the spec contains just allowed chars for words
+				wrd/index:  _context/add TO_CTX(global-ctx) wrd
+
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! wrd
+				type/header: proto
+			]
 			TYPE_INTEGER [
 				to-integer spec
 			]
@@ -1135,17 +1161,30 @@ string: context [
 			TYPE_REFINEMENT
 			TYPE_LIT_WORD
 			TYPE_SET_WORD
-			TYPE_GET_WORD [
+			TYPE_GET_WORD
+			TYPE_ISSUE [
 				either 0 = string/get-length spec no [
 					print-line "** Script error: content too short (or just whitespace)"
 					type/header: TYPE_UNSET
 				][
 					set-type
 						as red-value! word/make-at symbol/make-alt spec as cell! type
-						type/value
+						proto
 				]
 			]
-
+			TYPE_BITSET [
+				bitset/make as red-value! type as red-value! spec
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
 			default [
 				print-line "** Script error: Invalid argument for TO string!"
 				type/header: TYPE_UNSET
@@ -1895,6 +1934,7 @@ string: context [
 				assert all [
 					TYPE_OF(sp) = TYPE_STRING			;@@ replace by ANY_STRING?
 					TYPE_OF(sp) = TYPE_FILE
+					TYPE_OF(sp) = TYPE_URL
 					sp/node = str/node
 				]
 				sp/head + 1								;-- /head is 0-based
@@ -1916,7 +1956,12 @@ string: context [
 		]
 		
 		while [not zero? cnt][							;-- /dup support
-			either TYPE_OF(value) = TYPE_BLOCK [		;@@ replace it with: typeset/any-block?
+			type: TYPE_OF(value)
+			either any [
+				type = TYPE_BLOCK						;@@ replace it with: typeset/any-block?
+				type = TYPE_PAREN						;Oldes: I would not used any-block? here as PATHs are not wanted
+														;      for this case: to file! 'a/b == %a/b and not %ab
+			] [		
 				src: as red-block! value
 				s2: GET_BUFFER(src)
 				cell:  s2/offset + src/head
@@ -1942,10 +1987,7 @@ string: context [
 					]
 					added: added + 1
 				][
-					either any [
-						type = TYPE_STRING				;@@ replace with ANY_STRING?
-						type = TYPE_FILE 
-					][
+					either ANY_STRING?(type) [
 						form-buf: as red-string! cell
 					][
 						;TBD: free previous form-buf node and series buffer

@@ -146,6 +146,76 @@ word: context [
 	
 	;-- Actions --
 	
+	to: func [
+		type	[red-datatype!]
+		spec	[red-word!]
+		return: [red-value!]
+		/local
+			str   [red-string!]
+			w     [red-word!]
+			proto [integer!]
+			blk   [red-block!]
+			bin   [red-binary!]
+	][
+		proto: type/value
+		switch proto [
+			TYPE_STRING
+			TYPE_FILE
+			;TYPE_EMAIL
+			TYPE_URL [
+				str: string/rs-make-at as cell! type 1
+				switch TYPE_OF(spec) [
+					TYPE_SET_WORD   [ set-word/mold spec str no no no null 0 0 ]
+					TYPE_GET_WORD   [ get-word/mold spec str no no no null 0 0 ]
+					TYPE_LIT_WORD   [ lit-word/mold spec str no no no null 0 0 ]
+					TYPE_REFINEMENT [ refinement/mold spec str no no no null 0 0 ]
+					TYPE_ISSUE      [ issue/mold spec str no no no null 0 0 ]
+					default [
+						form spec str null 0
+					]
+				]
+				type/header: proto
+			]
+			TYPE_WORD
+			TYPE_SET_WORD
+			TYPE_GET_WORD
+			TYPE_LIT_WORD
+			TYPE_REFINEMENT
+			TYPE_ISSUE [
+				set-type as red-value! spec proto 
+				stack/set-last as red-value! spec
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_GET_PATH
+			TYPE_SET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			TYPE_BINARY [
+				;bin: binary/make-at type
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
+			]
+			default [
+				print-line "** Script error: Invalid argument for TO word!"
+				type/header: TYPE_UNSET
+			]
+		]
+		as red-value! type
+	]
+
 	form: func [
 		w		[red-word!]
 		buffer	[red-string!]
@@ -240,7 +310,7 @@ word: context [
 			null			;make
 			null			;random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
 			null			;eval-path

@@ -226,28 +226,38 @@ integer: context [
 			p    [byte-ptr!]
 			p2   [byte-ptr!]
 			tail [byte-ptr!]
-			buf [red-string!]
+			buf  [red-string!]
+			blk  [red-block!]
+			proto [integer!]
 	][
-		switch type/value [
+		proto: type/value
+		switch proto [
 			TYPE_FLOAT [
 				f: as red-float! type
 				f/header: TYPE_FLOAT
 				f/value: to-float spec/value
 			]
-			TYPE_STRING [
-				buf: string/rs-make-at as cell! type 1			;-- 16 bits string
+			TYPE_STRING
+			TYPE_FILE
+			;TYPE_EMAIL
+			TYPE_URL [
+				buf: string/rs-make-at as cell! type 1
 				string/concatenate-literal buf form-signed spec/value
+				type/header: proto
 			]
 			TYPE_CHAR [
 				i: as red-integer! type
 				i/header: TYPE_CHAR
 				i/value: spec/value
 			]
+			TYPE_INTEGER [
+				stack/set-last as red-value! spec
+			]
 			TYPE_BINARY [
-				b: binary/make-at as cell! type 8
+				b: binary/make-at as cell! type 4
 				p: (as byte-ptr! spec)
 				tail: p + 8
-				p: p + 16
+				p: p + 12
 				s: GET_BUFFER(b)
 				p2: as byte-ptr! s/tail
 				while [p > tail][                  ;@@ I wish to have `loop` in Red/System
@@ -256,6 +266,29 @@ integer: context [
 					p: p - 1
 				]
 				s/tail: as cell! p2
+			]
+			TYPE_BITSET [
+				bitset/make as red-value! type as red-value! spec
+			]
+			TYPE_BLOCK
+			TYPE_PAREN
+			TYPE_PATH
+			TYPE_LIT_PATH
+			TYPE_GET_PATH
+			TYPE_SET_PATH [
+				blk: block/make-at as red-block! type 1
+				block/rs-append blk as red-value! spec
+				type/header: proto
+			]
+			TYPE_LOGIC [
+				type/header: TYPE_LOGIC
+				type/value: 1
+			]
+			TYPE_NONE [
+				type/header: TYPE_NONE
+			]
+			TYPE_UNSET [
+				type/header: TYPE_UNSET
 			]
 			default [
 				print-line "** Script error: Invalid argument for TO integer!"

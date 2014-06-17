@@ -295,6 +295,24 @@ Red/System [
 		type = TYPE_BINARY
 	]
 ]
+#define ANY_BLOCK?(type)	[
+	any [
+		type = TYPE_BLOCK
+		type = TYPE_PAREN
+		type = TYPE_PATH
+		type = TYPE_LIT_PATH
+		type = TYPE_SET_PATH
+		type = TYPE_GET_PATH
+	]
+]
+#define ANY_STRING?(type)	[
+	any [
+		type = TYPE_STRING
+		type = TYPE_FILE
+		type = TYPE_URL
+		;type = TYPE_EMAIL
+	]
+]
 
 #define BS_SET_BIT(array bit)  [
 	pos: array + (bit >> 3)
