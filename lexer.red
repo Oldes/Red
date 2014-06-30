@@ -26,43 +26,7 @@ trans-number: routine [
 		trans-float start end							;-- decimal! escape path
 		exit
 	]
-	str:  GET_BUFFER(start)
-	unit: GET_UNIT(str)
-	p:	  string/rs-head start
-	len:  end/head - start/head
-	neg?: no
-	
-	c: string/get-char p unit
-	if any [
-		c = as-integer #"+" 
-		c = as-integer #"-"
-	][
-		neg?: c = as-integer #"-"
-		p: p + unit
-		len: len - 1
-	]
-	n: 0
-	until [
-		c: (string/get-char p unit) - #"0"
-		if c >= 0 [											;-- skip #"'"
-			m: n * 10
-			if m < n [SET_RETURN(none-value) exit]			;-- return NONE on overflow
-			n: m
-
-			if all [n = 2147483640 c = 8][
-				integer/box 80000000h						;-- special exit trap for -2147483648
-				exit
-			]
-
-			m: n + c
-			if m < n [SET_RETURN(none-value) exit]			;-- return NONE on overflow
-			n: m
-		]
-		p: p + unit
-		len: len - 1
-		zero? len
-	]
-	integer/box either neg? [0 - n][n]
+	integer/box string/to-integer start (end/head - start/head)
 ]
 
 trans-float: routine [

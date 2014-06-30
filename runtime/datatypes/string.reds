@@ -80,26 +80,83 @@ string: context [
 		strtod s0 null
 	]
 
+	to-float-str: func [
+		start		[red-string!]
+		len			[integer!]
+		return:		[float!]
+		/local
+			str		[series!]
+			cp		[integer!]
+			unit	[integer!]
+			s0		[byte-ptr!]
+			p4	 	[int-ptr!]
+			p		[byte-ptr!]
+			tail	[byte-ptr!]
+			cur		[byte-ptr!]
+			f		[float!]
+	][
+		str:  GET_BUFFER(start)
+		unit: GET_UNIT(str)
+		p:	  (as byte-ptr! str/offset) + (start/head << (unit >> 1))
+		tail: p + (len << (unit >> 1))
+		cur:  as byte-ptr! "0000000000000000000000000000000"
+		if len > 31 [cur: allocate len + 1]
+		s0:   cur
+
+		while [p < tail][								;-- convert to ascii string
+			cp: switch unit [
+				Latin1 [as-integer p/value]
+				UCS-2  [(as-integer p/2) << 8 + p/1]
+				UCS-4  [p4: as int-ptr! p p4/value]
+			]
+			case [
+				all [cp >= 30h cp <= 39h] [				;-- digits
+					cur/1: as-byte cp
+				]
+				any [									;-- #"-" #"+" #".", #"E", #"e"
+					cp = 2Dh cp = 2Bh cp = 2Eh cp = 45h cp = 65h
+					cp = 2Ch							;-- #","
+				][
+					cur/1: as-byte cp
+				]
+				cp = 27h [cur: cur - 1]					;-- skip #"'"
+				true [
+					cur/1: #"^@"
+					print-line ["** Syntax error: invalid decimal -- " as c-string! s0]
+					return 0.0							;@@ cause an error
+				]
+			]
+			cur: cur + 1
+			p: p + unit
+		]
+		cur/1: #"^@"
+		f: strtod s0 cur
+		if len > 31 [free s0]
+		f
+	]
+
 	to-integer: func [
-		start  [red-string!]
+		start    [red-string!]
+		len      [integer!]
+		return:  [integer!]
 		/local
 			str	 [series!]
 			unit [integer!]
 			c	 [integer!]
 			n	 [integer!]
 			m	 [integer!]
-			len  [integer!]
 			p	 [byte-ptr!]
 			neg? [logic!]
+			tail	[byte-ptr!]
 	][
-		len:  string/get-length start no
 		if zero? len [
 			print-line "** Script error: TO action, empty string"
-			SET_RETURN(none-value) exit
+			return null
 		]
 		str:  GET_BUFFER(start)
 		unit: GET_UNIT(str)
 		p:	  (as byte-ptr! str/offset) + (start/head << (unit >> 1))
+		tail: p + (len << (unit >> 1))
 		neg?: no
 
 		c: string/get-char p unit
@@ -109,37 +166,36 @@ string: context [
 		][
 			neg?: c = as-integer #"-"
 			p: p + unit
-			len: len - 1
 		]
 		n: 0
-		until [
+		while [p < tail][
 			c: (string/get-char p unit) - #"0"
-			unless any [
-				all [0 <= c c <= 9]
-				c = -9											;-- #"'"
-			][
-				print-line ["** Script error: cannot TO integer! from: " as-byte c]
-				SET_RETURN(none-value) exit
-			]
-			if c >= 0 [											;-- skip #"'"
-				m: n * 10
-				if m < n [SET_RETURN(none-value) exit]			;-- return NONE on overflow
-				n: m
+			case [
+				all [0 <= c c <= 9][
+					m: n * 10
+					if m < n [return null]			;-- return NONE on overflow
+					n: m
 
-				if all [n = 2147483640 c = 8][
-					integer/box 80000000h						;-- special exit trap for -2147483648
-					exit
+					if all [n = 2147483640 c = 8][
+						return 80000000h			;-- special exit trap for -2147483648
+					]
+
+					m: n + c
+					if m < n [return null]			;-- return NONE on overflow
+					n: m
 				]
-
-				m: n + c
-				if m < n [SET_RETURN(none-value) exit]			;-- return NONE on overflow
-				n: m
+				c = -9 [] ;-- #"'"
+				c = -2 [  ;-- #"."
+					return either neg? [0 - n][n]   ;does not detect invalid values like: "1.foo"!
+				]
+				true [
+					print-line ["** Script error: cannot TO integer! from: " unicode/to-utf8 start len]
+					return null
+				]
 			]
 			p: p + unit
-			len: len - 1
-			zero? len
 		]
-		integer/box either neg? [0 - n][n]
+		either neg? [0 - n][n]
 	]
 
 	to-hex: func [
@@ -1032,6 +1088,7 @@ string: context [
 		return: [red-value!]
 		/local
 			i      [red-integer!]
+			f      [red-float!]
 			str    [red-string!]
 			bin    [red-binary!]
 			len    [integer!]
@@ -1114,10 +1171,14 @@ string: context [
 				type/header: proto
 			]
 			TYPE_INTEGER [
-				to-integer spec
+				i: as red-integer! type
+				i/value: to-integer spec get-length spec no
+				i/header: TYPE_INTEGER
 			]
 			TYPE_FLOAT [
-				to-float spec
+				f: as red-float! type
+				f/value: to-float-str spec get-length spec no
+				f/header: TYPE_FLOAT
 			]
 			TYPE_WORD
 			TYPE_REFINEMENT
