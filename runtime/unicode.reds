@@ -154,7 +154,8 @@ unicode: context [
 			]
 			p: p + unit
 		]
-		string/add-terminal-NUL p unit
+		buf/1: null-byte
+
 		as-c-string s/offset
 	]
 	
