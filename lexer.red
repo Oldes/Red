@@ -76,6 +76,7 @@ trans-float: routine [
 		tail [byte-ptr!]
 		cur	 [byte-ptr!]
 		s0	 [byte-ptr!]
+		byte [byte!]
 ][
 	str:  GET_BUFFER(start)
 	unit: GET_UNIT(str)
@@ -87,14 +88,17 @@ trans-float: routine [
 	until [											;-- convert to ascii string
 		cp: string/get-char p unit
 		if cp <> as-integer #"'" [					;-- skip #"'"
+			if cp = as-integer #"," [cp: as-integer #"."]
 			cur/1: as-byte cp
 			cur: cur + 1
 		]
 		p: p + unit
 		p = tail
 	]
-	cur/1: as-byte 10
-	float/box red-dtoa/string-to-float s0 cur
+	byte:  cur/1      ;store last byte
+	cur/1: #"^@"      ;replace the byte with null so to-float can use it as end of input
+	float/box string/to-float s0
+	cur/1: byte       ;revert the byte back
 ]
 
 trans-hexa: routine [
@@ -523,11 +527,15 @@ transcode: function [
 	float-exp-rule: [[#"e" | #"E"] opt [#"-" | #"+"] 1 3 digit]
 	
 	float-number-rule: [
-		[dot | comma] some digit opt float-exp-rule e: (type: float!)
+		[dot | comma] [
+			[some digit opt float-exp-rule]
+			| #"#" [[[#"N" | #"n"] [#"a" | #"A"] [#"N" | #"n"]]
+					| [[#"I" | #"i"] [#"N" | #"n"] [#"F" | #"f"]]]
+		] e: (type: float!)
  	]
  	
  	float-rule: [
- 		float-number-rule
+		opt [#"-" | #"+"] float-number-rule
  		ahead [integer-end | ws-no-count | end]
  	]
 	
@@ -599,6 +607,7 @@ transcode: function [
 			| word-rule
 			| lit-word-rule
 			| get-word-rule
+			| slash-rule		(trans-word stack copy/part s e word!)
 			| refinement-rule
 			| file-rule			(trans-store stack value: do process)
 			| char-rule			(trans-store stack value)

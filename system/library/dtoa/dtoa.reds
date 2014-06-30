@@ -473,8 +473,8 @@ red-dtoa: context [
 		if b/wds < n [return 0]
 		sx: BIG_INT_X(s)
 		bx: BIG_INT_X(b)
-		q: bx/n / (sx/n + 1)					;-- ensure q <= true quotient
-		q: either q < 0 [0 - q][q]
+		;@@ do unsigned int division
+		q: float/to-integer floor (uint-to-float bx/n) / (uint-to-float sx/n + 1)			;-- ensure q <= true quotient
 		n: n - 1
 		sxe: sx + n
 		bxe: bx + n
@@ -1152,16 +1152,27 @@ red-dtoa: context [
 		][
 			f/value: f/value + sulp f/value bc
 		]
-		return 0
+		exit
 	]
 
 	bigcomp: func [
 		rv		[int64!]
 		s0		[byte-ptr!]
 		bc		[cmp-info!]
-		return: [integer!]
 		/local
-			f d b b2 d2 dd i j nd nd0 odd p2 p5
+			f	[pointer! [float!]]
+			d	[big-int!]
+			b	[big-int!]
+			b2	[integer!]
+			d2	[integer!]
+			i	[integer!]
+			j	[integer!]
+			nd	[integer!]
+			nd0	[integer!]
+			odd	[integer!]
+			p2	[integer!]
+			p5	[integer!]
+			dd	[integer!]
 	][
 		f:   as pointer! [float!] rv
 		nd:  bc/nd
@@ -1298,13 +1309,14 @@ red-dtoa: context [
 			rv	[float!]
 			rv0 [float!]
 			aadj2 [float!]
+			bbe [integer!]
 			bb	[big-int!]
 			bb1	[big-int!]
 			bd	[big-int!]
 			bd0	[big-int!]
 			bs	[big-int!]
 			delta [big-int!]
-			bb2 bb5 bbe bd2 bd5 bs2 c dsign e e1
+			bb2 bb5 bd2 bd5 bs2 c dsign e e1
 			i j k nd nd0 odd neg? s s0 s1
 			aadj aadj1 adj y z next?
 			L bc d d0 d2 w0 w1 ndigits fraclen
@@ -1778,5 +1790,71 @@ red-dtoa: context [
 			next?: yes
 		]
 		rv
+	]
+
+	form-float: func [									;-- wrapper of `float-to-ascii` for convenient use
+		f 		[float!]
+		return: [c-string!]
+		/local
+			s	[byte-ptr!]
+			end [byte-ptr!]
+			ss	[c-string!]
+			sig [integer!]
+			e 	[integer!]
+			len [integer!]
+	][
+		e: 0
+		len: 0
+		sig: 0
+		s: as byte-ptr! float-to-ascii f :e :sig :len
+
+		if e > 9997 [return as c-string! s]				;-- NaN, INFs, +/-0.0
+
+		case [
+			 any [e > 17 e < -3][						;-- e-format
+				move-memory s + 2 s + 1 len
+				s/2: #"."
+				end: s + len
+			]
+			e > 0 [
+				either e <= len [
+					move-memory s + e + 1 s + e len - e
+					e: e + 1
+					s/e: #"."
+					end: s + len
+				][
+					set-memory s + len #"0" e - len
+					end: s + e
+					e: e + 1
+					s/e: #"."
+				]
+				e: 0
+			]
+			true [
+				e: 0 - e + 2
+				move-memory s + e s len + 1
+				set-memory s #"0" e
+				s/2: #"."
+				end: s + len + e
+				e: 0
+			]
+		]
+
+		if end/1 = #"." [
+			end: end + 1
+			end/1: #"0"
+		]
+		if e <> 0 [
+			end: end + 1
+			end/1: #"e"
+			ss: integer/form-signed e - 1
+			len: length? ss
+			copy-memory end + 1 as byte-ptr! ss len
+			end: end + len
+		]
+
+		end/2: #"^@"
+		if sig <> 0 [s: s - 1]
+		as c-string! s
 	]
 ]

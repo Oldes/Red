@@ -25,7 +25,7 @@ string: context [
 		
 	escape-chars: [
 		#"^(40)" #"^(41)" #"^(42)" #"^(43)" #"^(44)" #"^(45)" #"^(46)" #"^(47)" ;-- 07h
-		#"^(48)" #"-"     #"/"     #"^(4B)" #"^(4C)" #"^(4D)" #"^(4E)" #"^(4F)" ;-- 0Fh
+		#"-" 	 #"/" 	  #"^(4A)" #"^(4B)" #"^(4C)" #"^(4D)" #"^(4E)" #"^(4F)" ;-- 0Fh
 		#"^(50)" #"^(51)" #"^(52)" #"^(53)" #"^(54)" #"^(55)" #"^(56)" #"^(57)" ;-- 17h
 		#"^(58)" #"^(59)" #"^(5A)" #"^(5B)" #"^(5C)" #"^(5D)" #"^(5E)" #"^(5F)" ;-- 1Fh
 		#"^(00)" #"^(00)" #"^""    #"^(00)" #"^(00)" #"^(00)" #"^(00)" #"^(00)" ;-- 27h
@@ -60,62 +60,24 @@ string: context [
 	utf8-buffer: [#"^(00)" #"^(00)" #"^(00)" #"^(00)"]
 
 	to-float: func [
-		start		[red-string!]
+		s		[byte-ptr!]
+		return: [float!]
 		/local
-			str		[series!]
-			cp		[integer!]
-			unit	[integer!]
-			len		[integer!]
-			s0		[byte-ptr!]
-			p4	 	[int-ptr!]
-			p		[byte-ptr!]
-			tail	[byte-ptr!]
-			cur		[byte-ptr!]
-			f		[float!]
+			s0	[byte-ptr!]
 	][
-		len:  string/get-length start no
-		if zero? len [
-			print-line "** Script error: TO action, empty string"
-			SET_RETURN(none-value) exit
-		]
-		str:  GET_BUFFER(start)
-		unit: GET_UNIT(str)
-		p:	  (as byte-ptr! str/offset) + (start/head << (unit >> 1))
-		tail: p + (len << (unit >> 1))
-		cur:  as byte-ptr! "0000000000000000000000000000000"
-		if len > 31 [cur: allocate len + 1]
-		s0:   cur
-
-		while [p < tail][								;-- convert to ascii string
-			cp: switch unit [
-				Latin1 [as-integer p/value]
-				UCS-2  [(as-integer p/2) << 8 + p/1]
-				UCS-4  [p4: as int-ptr! p p4/value]
+		s0: s
+		if any [s/1 = #"-" s/1 = #"+"] [s: s + 1]
+		if s/3 = #"#" [										;-- 1.#NaN, -1.#INF" or "1.#INF
+			if any [s/4 = #"I" s/4 = #"i"] [
+				return either s0/1 = #"-" [
+					0.0 - float/+INF
+				][float/+INF]
 			]
-			case [
-				all [cp >= 30h cp <= 39h] [				;-- digits
-					cur/1: as-byte cp
-				]
-				any [									;-- #"-" #"+" #"." #"E" #"e"
-					cp = 2Dh cp = 2Bh cp = 2Eh cp = 45h cp = 65h
-					cp = 2Ch							;-- #","
-				][
-					cur/1: as-byte cp
-				]
-				cp = 27h [cur: cur - 1]					;-- skip #"'"
-				true [
-					cur/1: as-byte cp
-					cur/2: #"^@"
-					print-line ["** Script error: cannot TO float! from: " as c-string! s0]
-					SET_RETURN(none-value) exit
-				]
+			if any [s/4 = #"N" s/4 = #"n"] [
+				return float/QNaN
 			]
-			cur: cur + 1
-			p: p + unit
 		]
-		cur/1: #"^@"
-		float/box red-dtoa/string-to-float s0 cur
-		if len > 31 [free s0]
+		strtod s0 null
 	]
 
 	to-integer: func [
