@@ -183,10 +183,10 @@ string: context [
 		]
 		case [
 			state = 13 [
-				return float/QNaN
+				f: float/QNaN
 			]
 			state = 16 [
-				return either s0/1 = #"-" [0.0 - float/+INF][float/+INF]
+				f: either s0/1 = #"-" [0.0 - float/+INF][float/+INF]
 			]
 			state <= 1 [
 				switch state [
