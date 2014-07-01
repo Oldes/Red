@@ -199,7 +199,7 @@ string: context [
 					]
 				]
 				if len > 31 [free s0]
-				return 0.0							;@@ cause an error
+				return float/QNaN						;@@ cause an error
 			]
 			true [
 				cur/1: #"^@"
