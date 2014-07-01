@@ -117,12 +117,12 @@ string: context [
 					state: 1
 				]
 				; some leading digit
-				all [state <= 2 cp >= 30h cp <= 39h][       ;-- digits 
+				all [state >= 0 state <= 2 cp >= 30h cp <= 39h][       ;-- digits 
 					cur/1: as-byte cp
 					state: 2
 				]
 				; decimal point
-				all [state <= 2 any [cp = 2Eh cp = 2Ch]][   ;-- #"." #","
+				all [state >= 0 state <= 2 any [cp = 2Eh cp = 2Ch]][   ;-- #"." #","
 					cur/1: as-byte cp
 					state: 3
 				]
@@ -144,11 +144,12 @@ string: context [
 					cur/1: as-byte cp
 					state: 5
 				]
-				any [
-					all [state > 0 state <= 4 cp = 27h ]    ;-- skip #"'" if used before exponent
-					all [state = 0 any [cp = 20h cp = 09h]] ;-- skip leading whitespace #" " #"^-"
-				][
+				all [state > 0 state <= 4 cp = 27h ][    ;-- skip #"'" if used before exponent
 					cur: cur - 1
+				]
+				any [cp = 20h cp = 09h][ ;-- skip leading whitespace #" " #"^-"
+					cur: cur - 1
+					if state > 0 [state: 100] ;any value, which is not WS and will follow, will cause error
 				]
 				; special char after decimal point
 				all [state = 3 cp = 23h][ ;-- #"#"
