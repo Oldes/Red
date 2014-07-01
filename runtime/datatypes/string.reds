@@ -80,7 +80,7 @@ string: context [
 		strtod s0 null
 	]
 
-	to-float-str: func [
+	to-float-str: func [ ;-- This is string to float version, which is not using lexer
 		start		[red-string!]
 		len			[integer!]
 		return:		[float!]
@@ -94,6 +94,7 @@ string: context [
 			tail	[byte-ptr!]
 			cur		[byte-ptr!]
 			f		[float!]
+			state   [integer!]
 	][
 		str:  GET_BUFFER(start)
 		unit: GET_UNIT(str)
@@ -102,35 +103,109 @@ string: context [
 		cur:  as byte-ptr! "0000000000000000000000000000000"
 		if len > 31 [cur: allocate len + 1]
 		s0:   cur
-
-		while [p < tail][								;-- convert to ascii string
+		state: 0
+		while [p < tail][		;-- convert to ascii string and validate
 			cp: switch unit [
 				Latin1 [as-integer p/value]
 				UCS-2  [(as-integer p/2) << 8 + p/1]
 				UCS-4  [p4: as int-ptr! p p4/value]
 			]
 			case [
-				all [cp >= 30h cp <= 39h] [				;-- digits
+				; opt [#"-" | #"+"]
+				all [state = 0 any [cp = 2Dh cp = 2Bh]][    ;-- #"-" #"+"
 					cur/1: as-byte cp
+					state: 1
 				]
-				any [									;-- #"-" #"+" #".", #"E", #"e"
-					cp = 2Dh cp = 2Bh cp = 2Eh cp = 45h cp = 65h
-					cp = 2Ch							;-- #","
+				; some leading digit
+				all [state <= 2 cp >= 30h cp <= 39h][       ;-- digits 
+					cur/1: as-byte cp
+					state: 2
+				]
+				; decimal point
+				all [state <= 2 any [cp = 2Eh cp = 2Ch]][   ;-- #"." #","
+					cur/1: as-byte cp
+					state: 3
+				]
+				; some digits after decimal point
+				all [state >= 3 state <= 5 cp >= 30h cp <= 39h][   ;-- digits 
+					cur/1: as-byte cp
+					if state = 3 [state: 4]
+				]
+				; exponent char
+				all [state >= 2 state <= 4 any [cp = 45h cp = 65h]][ ;-- #"E", #"e"
+					cur/1: as-byte cp
+					state: -5 ;negative because there must be digit after, or after sign
+				]
+				all [state = -5 any [cp = 2Dh cp = 2Bh]][           ;-- #"-" #"+"
+					cur/1: as-byte cp
+					state: -6 ;negative because there must be digit after it
+				]
+				all [state <= -5 cp >= 30h cp <= 39h][ ;-- first digit after exponent or its sign
+					cur/1: as-byte cp
+					state: 5
+				]
+				any [
+					all [state > 0 state <= 4 cp = 27h ]    ;-- skip #"'" if used before exponent
+					all [state = 0 any [cp = 20h cp = 09h]] ;-- skip leading whitespace #" " #"^-"
 				][
-					cur/1: as-byte cp
+					cur: cur - 1
 				]
-				cp = 27h [cur: cur - 1]					;-- skip #"'"
+				; special char after decimal point
+				all [state = 3 cp = 23h][ ;-- #"#"
+					;@@ should be value like +123.#InF be detected as invalid? If so, here is good place to detect it.
+					state: 10
+				]
+				all [state = 10 any [cp = 4Eh cp = 6Eh]][ ;-- #"N" #"n"
+					state: 11
+				]
+				all [state = 11 any [cp = 41h cp = 61h]][ ;-- #"A" #"a"
+					state: 12
+				]
+				all [state = 12 any [cp = 4Eh cp = 6Eh]][ ;-- #"N" #"n"
+					state: 13
+				]
+				all [state = 10 any [cp = 49h cp = 69h]][ ;-- #"I" #"i"
+					state: 14
+				]
+				all [state = 14 any [cp = 4Eh cp = 6Eh]][ ;-- #"N" #"n"
+					state: 15
+				]
+				all [state = 15 any [cp = 46h cp = 66h]][ ;-- #"F" #"f"
+					state: 16
+				]
 				true [
-					cur/1: #"^@"
-					print-line ["** Syntax error: invalid decimal -- " as c-string! s0]
-					return 0.0							;@@ cause an error
+					state: -10
+					p: tail
 				]
 			]
 			cur: cur + 1
 			p: p + unit
 		]
-		cur/1: #"^@"
-		f: strtod s0 cur
+		case [
+			state = 13 [
+				return float/QNaN
+			]
+			state = 16 [
+				return either s0/1 = #"-" [0.0 - float/+INF][float/+INF]
+			]
+			state <= 1 [
+				switch state [
+					0 [
+						print-line "** Script error: content too short (or just whitespace)"
+					]
+					default [
+						print-line [{** Script error: cannot MAKE/TO decimal! from: } unicode/to-utf8 start len ]
+					]
+				]
+				if len > 31 [free s0]
+				return 0.0							;@@ cause an error
+			]
+			true [
+				cur/1: #"^@"
+				f: strtod s0 cur
+				
+			]
+		]
 		if len > 31 [free s0]
 		f
 	]
@@ -1150,24 +1225,12 @@ string: context [
 				binary/concatenate-str bin spec -1 1 no
 			]
 			TYPE_BLOCK
-			TYPE_PAREN [
-				blk: block/make-at as red-block! type 1
-				block/rs-append blk as red-value! spec
-				type/header: proto
-			]
+			TYPE_PAREN
 			TYPE_PATH
 			TYPE_LIT_PATH
 			TYPE_SET_PATH
 			TYPE_GET_PATH [
-				cell: declare cell!
-				wrd: as red-word! cell
-				wrd/header: TYPE_WORD							;-- implicit reset of all header flags
-				wrd/ctx: 	global-ctx
-				wrd/symbol: symbol/make-alt spec    ;@@ maybe there should be a test if the spec contains just allowed chars for words
-				wrd/index:  _context/add TO_CTX(global-ctx) wrd
-
-				blk: block/make-at as red-block! type 1
-				block/rs-append blk as red-value! wrd
+				#call [transcode spec type]
 				type/header: proto
 			]
 			TYPE_INTEGER [
