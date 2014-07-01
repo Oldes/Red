@@ -195,7 +195,7 @@ string: context [
 						print-line "** Script error: content too short (or just whitespace)"
 					]
 					default [
-						print-line [{** Script error: cannot MAKE/TO decimal! from: } unicode/to-utf8 start len ]
+						print-line [{** Script error: cannot MAKE/TO float! from: } unicode/to-utf8 start len ]
 					]
 				]
 				if len > 31 [free s0]
