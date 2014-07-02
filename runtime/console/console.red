@@ -89,7 +89,7 @@ count-delimiters: function [
 
 do-console: function [][
 	buffer: make string! 10000
-	prompt: red-prompt: "red>> "
+	prompt: red-prompt: "^[[1;49m^[[31;41mred^[[1;49;40;31m>> ^[[37m"
 	mode:  'mono
 	
 	switch-mode: [
@@ -103,13 +103,14 @@ do-console: function [][
 			]
 		]
 		prompt: switch mode [
-			block  ["[^-"]
-			string ["{^-"]
+			block  ["^[[1;49;31m[^-^[[37m"]
+			string ["^[[1;49;31m{^-^[[37m"]
 			mono   [red-prompt]
 		]
 	]
 	
 	eval: [
+		prin {^[[0m}
 		code: load/all buffer
 		
 		unless tail? code [
@@ -120,7 +121,7 @@ do-console: function [][
 					clear back tail result
 					append result "..."
 				]
-				print ["==" result]
+				print ["^[[1;49;31m==^[[33m" result]
 			]
 		]
 		clear buffer
@@ -157,9 +158,9 @@ if script: read-argument [
 ]
 init-console "Red Console"
 
-print {
--=== Red Console alpha version ===-
-Type HELP for starting information.
-}
+print {^[[0;1;37;41m
+-=== Red Console alpha version ===-^[[31;49m
+Type ^[[32mHELP^[[31m for starting information.
+^[[0m}
 
 do-console

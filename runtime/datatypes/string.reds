@@ -192,10 +192,10 @@ string: context [
 			state <= 1 [
 				switch state [
 					0 [
-						print-line "** Script error: content too short (or just whitespace)"
+						print-line "^[[1;49;31m** Script error: content too short (or just whitespace)^[[0m"
 					]
 					default [
-						print-line [{** Script error: cannot MAKE/TO float! from: } unicode/to-utf8 start len ]
+						print-line [{^[[1;49;31m** Script error: cannot MAKE/TO float! from: ^[[33m} unicode/to-utf8 start len "^[[0m" ]
 					]
 				]
 				if len > 31 [free s0]

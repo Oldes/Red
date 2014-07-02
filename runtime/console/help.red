@@ -20,25 +20,25 @@ help: func [
 	
 	case [
 		unset? :word [								;-- HELP with no arguments
-			print {Use HELP or ? to see built-in info:
-
+			print {Use ^[[1;49;32mHELP^[[0m or ^[[1;49;32m?^[[0m to see built-in info:
+^[[1;49;32m
     help insert
     ? insert
-
+^[[0m
 To see all words of a specific datatype:
-
+^[[1;49;32m
     ? native!
     ? function!
     ? datatype!
-
+^[[0m
 Other useful functions:
 
-    ?? - display a variable and its value
-    probe - print a value (molded)
-    source func - show source code of func
-    what - show a list of known functions
-    about - display version number and build date
-    q or quit - leave the Red console
+    ^[[1;49;32m??^[[0m - display a variable and its value
+    ^[[1;49;32mprobe^[[0m - print a value (molded)
+    ^[[1;49;32msource^[[0m func - show source code of func
+    ^[[1;49;32mwhat^[[0m - show a list of known functions
+    ^[[1;49;32mabout^[[0m - display version number and build date
+    ^[[1;49;32mq^[[0m or ^[[1;49;32mquit^[[0m - leave the Red console
 }
 		]
 		all [word? word datatype? get :word] [						;-- HELP <datatype!>
