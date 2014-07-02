@@ -330,6 +330,7 @@ platform: context [
 			35 [attribute: (attribute and 88h) or FOREGROUND_MAGENTA]
 			36 [attribute: (attribute and 88h) or FOREGROUND_CYAN]
 			37 [attribute: (attribute and 88h) or FOREGROUND_GREY]
+			39 [attribute: attribute xor FOREGROUND_INTENSITY]
 			40 [attribute: (attribute and 88h)]
 			41 [attribute: (attribute and 88h) or BACKGROUND_RED]
 			42 [attribute: (attribute and 88h) or BACKGROUND_GREEN]
@@ -338,6 +339,7 @@ platform: context [
 			45 [attribute: (attribute and 88h) or BACKGROUND_MAGENTA]
 			46 [attribute: (attribute and 88h) or BACKGROUND_CYAN]
 			47 [attribute: (attribute and 88h) or BACKGROUND_GREY]
+			49 [attribute: attribute xor BACKGROUND_INTENSITY] ;
 			default [attribute: value]
 		]
 		attribute
