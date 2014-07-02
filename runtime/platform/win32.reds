@@ -669,6 +669,73 @@ platform: context [
 	]
 
 	;-------------------------------------------
+	;-- Print a UTF-8 string to console         
+	;-------------------------------------------
+	print-UTF-8: func [
+		str 	[c-string!]								;-- zero-terminated UTF-8 string
+		/local
+			cp    [integer!]							;-- codepoint
+			chars [integer!]							;-- mumber of used chars in buffer
+			skip  [integer!]
+			used  [integer!]
+			cp2   [integer!]
+	][
+		assert str <> null
+		chars: 0
+		skip: 0
+		while [
+			used: 4 ;@@ decode-utf8-char is doing check if there is enough bytes, is it safe to always say there is at least 4 bytes?
+			cp: unicode/decode-utf8-char str :used
+			cp > 0
+		][
+			if cp = 1Bh [ ;-- #"^[" = ansi escape char
+				putbuffer chars
+				chars: 0
+				skip: parse-ansi-sequence as byte-ptr! str Latin1
+			]
+			case [
+				skip = 0 [
+					case [
+						cp <= FFh [
+							buffer/1: as byte! cp
+							buffer/2: null-byte ;this should be always 0 in Latin1
+							chars: chars + 1
+							buffer: buffer + 2
+						]
+						cp <= FFFFh [
+							buffer/1: as byte! cp
+							buffer/2: as byte! cp >> 8
+							chars: chars + 1
+							buffer: buffer + 2
+						]
+						true [
+							;@@ this should be tested, I don't know how a.t.m.
+							cp2: cp >> 10 + D800h				;-- emit lead
+							buffer/1: as byte! cp2
+							buffer/2: as byte! cp2 >> 8
+							cp2: cp and 03FFh + DC00h			;-- emit trail
+							buffer/3: as byte! cp2
+							buffer/4: as byte! cp2 >> 8
+							chars: chars + 2
+							buffer: buffer + 4
+						]
+					]
+					str: str + used
+					if chars >= 510 [  ; if the buffer has 1024 bytes, it has room for 512 chars
+						putbuffer chars
+						chars: 0
+					]
+				]
+				skip > 0 [
+					str: str + skip
+					skip: 0
+				]
+			]
+		]
+		putbuffer chars
+	]
+
+	;-------------------------------------------
 	;-- Red/System Unicode replacement printing functions
 	;-------------------------------------------
 

@@ -114,7 +114,7 @@ Red/System [
 
 #either unicode? = yes [
 
-	#define prin			[red/platform/prin*]
+	#define prin			[red/platform/print-UTF-8]
 	#define prin-int		[red/platform/prin-int*]
 	#define prin-hex		[red/platform/prin-hex*]
 	#define prin-float		[red/platform/prin-float*]
