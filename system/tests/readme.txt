@@ -1,1 +1,0 @@
-The quick-test docs have been moved to the Red/Docs folder.
