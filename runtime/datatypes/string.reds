@@ -1231,7 +1231,12 @@ string: context [
 			TYPE_LIT_PATH
 			TYPE_SET_PATH
 			TYPE_GET_PATH [
-				#call [transcode spec type]
+				either TYPE_OF(spec) = TYPE_STRING [
+					#call [transcode spec type]
+				][
+					blk: block/make-at as red-block! type 1
+					block/rs-append blk as red-value! spec
+				]
 				type/header: proto
 			]
 			TYPE_INTEGER [

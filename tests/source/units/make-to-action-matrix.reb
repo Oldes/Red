@@ -100,7 +100,7 @@ not-supported: [
 modified-results: [
 	{to string! test-lit-word} {"'lit-word"}   ; there is a problem to get lit-word! in R3 -> test: first ['a] type? test == word!
 	{to file! test-lit-word}   {%'lit-word}
-	{to path! test-lit-word}   {{'lit-word}
+	{to path! test-lit-word}   {{'lit-word}}
 	{to lit-word! #"a"}        {{'a}}
 	{to lit-word! "foo"}       {{'foo}}
 	{to lit-word! test-word}   {{'word}}
@@ -115,13 +115,13 @@ modified-results: [
 	{to binary! 256}           {#{00000100}}   ; in R3: #{0000000000000100}
 	{to binary! -1}            {#{FFFFFFFF}}   ; in R3: #{FFFFFFFFFFFFFFFF}
 	;these values are closed in another string as I compare molded values in the asserts
-	{to block! "foo"}          {{["foo"]}}     ; in R3: "[foo]"
-	{to block! "foo  bar"}     {{["foo  bar"]}}; in R3: "[foo bar]" ;two words
+;	{to block! "foo"}          {{["foo"]}}     ; in R3: "[foo]"
+;	{to block! "foo  bar"}     {{["foo  bar"]}}; in R3: "[foo bar]" ;two words
 	{to block! #{}}            {{[#{}]}}       ; in R3: "[]"
 	{to block! #{616263}}      {{[#{616263}]}} ; in R3: "[abc]"
 	{to block! test-lit-word}  {{['lit-word]}} ; in R3: "[lit-word]"
-	{to paren! "foo"}          {{("foo")}}     ; in R3: "(foo)"
-	{to paren! "foo  bar"}     {{("foo  bar")}}; in R3: "(foo bar)" ;two words
+;	{to paren! "foo"}          {{("foo")}}     ; in R3: "(foo)"
+;	{to paren! "foo  bar"}     {{("foo  bar")}}; in R3: "(foo bar)" ;two words
 	{to paren! test-lit-word}  {{('lit-word)}} ; in R3: "(lit-word)"
 	{to paren! #{}}            {{(#{})}}       ; in R3: "()"
 	{to paren! #{616263}}      {{(#{616263})}} ; in R3: "(abc)"

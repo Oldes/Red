@@ -392,7 +392,7 @@ test-bitset:  make bitset! #{00}
 		--assert "word" = mold to path! test-word
 	--test-- "to-path!-word!"
 		--assert path? to path! test-lit-word
-		--assert "'lit-word" = mold to path! test-lit-word
+		--assert {'lit-word} = mold to path! test-lit-word
 	--test-- "to-path!-set-word!"
 		--assert path? to path! test-set-word
 		--assert "set-word:" = mold to path! test-set-word
@@ -873,10 +873,10 @@ test-bitset:  make bitset! #{00}
 		--assert {[#"a"]} = mold to block! #"a"
 	--test-- "to-block!-string!"
 		--assert block? to block! "foo"
-		--assert {["foo"]} = mold to block! "foo"
+		--assert "[foo]" = mold to block! "foo"
 	--test-- "to-block!-string!"
 		--assert block? to block! "foo  bar"
-		--assert {["foo  bar"]} = mold to block! "foo  bar"
+		--assert "[foo bar]" = mold to block! "foo  bar"
 	--test-- "to-block!-integer!"
 		--assert block? to block! 0
 		--assert "[0]" = mold to block! 0
@@ -1017,10 +1017,10 @@ test-bitset:  make bitset! #{00}
 		--assert {(#"a")} = mold to paren! #"a"
 	--test-- "to-paren!-string!"
 		--assert paren? to paren! "foo"
-		--assert {("foo")} = mold to paren! "foo"
+		--assert "(foo)" = mold to paren! "foo"
 	--test-- "to-paren!-string!"
 		--assert paren? to paren! "foo  bar"
-		--assert {("foo  bar")} = mold to paren! "foo  bar"
+		--assert "(foo bar)" = mold to paren! "foo  bar"
 	--test-- "to-paren!-integer!"
 		--assert paren? to paren! 0
 		--assert "(0)" = mold to paren! 0
