@@ -19,8 +19,13 @@ Red [
 #include %engine.red
 #include %auto-complete.red
 
+;#include %../../../red-code/Library/ImageMagick/ImageMagick.red
+;#include %../../../red-code/Library/Bass/bass.red
+
+
 #system [
 	#include %terminal.reds
+	#include %../../modules/browser/backends/windows/browser.reds
 ]
 
 ask: routine [
