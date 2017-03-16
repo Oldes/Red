@@ -27,29 +27,29 @@ IID_IOleInPlaceSite: [00000119h 00000000h 000000C0h 46000000h]
 
 ;-> https://msdn.microsoft.com/en-us/library/windows/desktop/ms686586(v=vs.85).aspx
 
-InPlace_GetWindow!: alias function! [
+InPlace_GetWindow!: alias function! [[callback] 
 	this [this!] 
 	lphwnd [int-ptr!] ;HWND FAR* 
 	return: [integer!]
 ]
-InPlace_ContextSensitiveHelp!: alias function! [
+InPlace_ContextSensitiveHelp!: alias function! [[callback] 
 	this [this!]
 	fEnterMode [logic!]
 	return: [integer!]
 ]
-InPlace_CanInPlaceActivate!: alias function! [
+InPlace_CanInPlaceActivate!: alias function! [[callback] 
 	this [this!]
 	return: [integer!]
 ]
-InPlace_OnInPlaceActivate!: alias function! [
+InPlace_OnInPlaceActivate!: alias function! [[callback] 
 	this [this!]
 	return: [integer!]
 ]
-InPlace_OnUIActivate!: alias function! [
+InPlace_OnUIActivate!: alias function! [[callback] 
 	this [this!]
 	return: [integer!]
 ]
-InPlace_GetWindowContext!: alias function! [
+InPlace_GetWindowContext!: alias function! [[callback] 
 	this [this!]
 	lplpFrame [int-ptr!] ;LPOLEINPLACEFRAME FAR* 
 	lplpDoc [int-ptr!] ;LPOLEINPLACEUIWINDOW FAR* 
@@ -58,29 +58,29 @@ InPlace_GetWindowContext!: alias function! [
 	lpFrameInfo  [tagOIFI!] ;LPOLEINPLACEFRAMEINFO
 	return: [integer!]
 ]
-InPlace_Scroll!: alias function! [
+InPlace_Scroll!: alias function! [[callback] 
 	this [this!]
 	scrollExtent [SIZE!]
 	return: [integer!]
 ]
-InPlace_OnUIDeactivate!: alias function! [
+InPlace_OnUIDeactivate!: alias function! [[callback] 
 	this [this!]
 	fUndoable [logic!]
 	return: [integer!]
 ]
-InPlace_OnInPlaceDeactivate!: alias function! [
+InPlace_OnInPlaceDeactivate!: alias function! [[callback] 
 	this [this!]
 	return: [integer!]
 ]
-InPlace_DiscardUndoState!: alias function! [
+InPlace_DiscardUndoState!: alias function! [[callback] 
 	this [this!]
 	return: [integer!]
 ]
-InPlace_DeactivateAndUndo!: alias function! [
+InPlace_DeactivateAndUndo!: alias function! [[callback] 
 	this [this!]
 	return: [integer!]
 ]
-InPlace_OnPosRectChange!: alias function! [
+InPlace_OnPosRectChange!: alias function! [[callback] 
 	this [this!]
 	lprcPosRect [LPCRECT!]
 	return: [integer!]

@@ -36,7 +36,7 @@ IOleCommandTarget!: alias struct! [
 	AddRef           [AddRef!]
 	Release          [Release!]
 	QueryStatus [
-		function! [this [this!]
+		function! [[callback] this [this!]
 			pguidCmdGroup [int-ptr!] ;/* [unique][in] */ __RPC__in_opt const GUID *pguidCmdGroup,
 			cCmds         [integer!] ;/* [in] */ ULONG cCmds,
 			prgCmds       [int-ptr!] ;/* [out][in][size_is] */ __RPC__inout_ecount_full(cCmds) OLECMD prgCmds[  ],
@@ -44,7 +44,7 @@ IOleCommandTarget!: alias struct! [
 			return:       [integer!] 
 	]]
     Exec [
-    	function! [this [this!]
+    	function! [[callback] this [this!]
     		pguidCmdGroup [int-ptr!]
     		nCmdID        [integer!]
     		nCmdexecopt   [integer!]

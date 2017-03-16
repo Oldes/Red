@@ -16,6 +16,6 @@ IClassFactory!: alias struct! [
 	QueryInterface       [QueryInterface!]
 	AddRef               [AddRef!]
 	Release              [Release!]
-	CreateInstance       [function! [this [this!] pUnkOuter [int-ptr!] riid [int-ptr!] ppvObject [interface!] return: [integer!]]]
-	LockServer           [function! [this [this!] fLock [logic!] return: [integer!]]]
+	CreateInstance       [function! [[callback] this [this!] pUnkOuter [int-ptr!] riid [int-ptr!] ppvObject [interface!] return: [integer!]]]
+	LockServer           [function! [[callback] this [this!] fLock [logic!] return: [integer!]]]
 ]

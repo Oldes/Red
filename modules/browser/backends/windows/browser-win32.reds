@@ -29,8 +29,6 @@ Red/System [
 #define WS_OVERLAPPEDWINDOW	00CF0000h
 #define SW_SHOWDEFAULT		10
 
-#define OLEIVERB_SHOW -1
-
 
 #define WIN32_LOWORD(param) (param and FFFFh << 16 >> 16)	;-- trick to force sign extension
 #define WIN32_HIWORD(param) (param >> 16)
@@ -96,6 +94,7 @@ interface!: alias struct! [
 ]
 
 QueryInterface!: alias function! [
+	[callback]
 	this		[this!]
 	riid		[int-ptr!]
 	ppvObject	[interface!]
@@ -103,11 +102,13 @@ QueryInterface!: alias function! [
 ]
 
 AddRef!: alias function! [
+	[callback]
 	this		[this!]
 	return:		[integer!]
 ]
 
 Release!: alias function! [
+	[callback]
 	this		[this!]
 	return:		[integer!]
 ]

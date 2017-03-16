@@ -12,12 +12,12 @@ Red/System [
 
 IID_IOleClientSite: [00000118h 00000000h 000000C0h 46000000h]
 
-Site_SaveObject!: alias function! [this [this!] return: [integer!]]
-Site_GetMoniker!: alias function! [this [this!] dwAssign [integer!] dwWhichMoniker [integer!] ppmk [int-ptr!] return: [integer!]]
-Site_GetContainer!: alias function! [this [this!] ppContainer [int-ptr!] return: [integer!]]
-Site_ShowObject!: alias function! [this [this!] return: [integer!]] 
-Site_OnShowWindow!: alias function! [this [this!] fShow [logic!] return: [integer!]]
-Site_RequestNewObjectLayout!: alias function! [this [this!] return: [integer!]]
+Site_SaveObject!: alias function! [[callback] this [this!] return: [integer!]]
+Site_GetMoniker!: alias function! [[callback] this [this!] dwAssign [integer!] dwWhichMoniker [integer!] ppmk [int-ptr!] return: [integer!]]
+Site_GetContainer!: alias function! [[callback] this [this!] ppContainer [int-ptr!] return: [integer!]]
+Site_ShowObject!: alias function! [[callback] this [this!] return: [integer!]] 
+Site_OnShowWindow!: alias function! [[callback] this [this!] fShow [logic!] return: [integer!]]
+Site_RequestNewObjectLayout!: alias function! [[callback] this [this!] return: [integer!]]
 
 IOleClientSite!: alias struct! [
 	QueryInterface         [QueryInterface!]

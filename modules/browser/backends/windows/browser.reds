@@ -32,6 +32,8 @@ tagSAFEARRAYBOUND: alias struct! [
 
 
 #either modules contains 'View [
+	IID_IUnknown: [00000000h 00000000h 000000C0h 46000000h]
+
 	RECT_STRUCT: alias struct! [
 		left		[integer!]
 		top			[integer!]
@@ -70,27 +72,11 @@ tagSAFEARRAYBOUND: alias struct! [
 	]
 
 	#import [
-
-		"ole32.dll" stdcall [
-			CoGetClassObject: "CoGetClassObject" [
-				rclsid		 [int-ptr!]
-				dwClsContext [integer!]
-				pServerInfo  [int-ptr!]
-				riid		 [int-ptr!]
-				ppv			 [interface!]
-				return:		 [integer!]
-			]
-			OleInitialize: "OleInitialize" [
-				pvReserved [int-ptr!]
-				return:  [integer!]
-			]
-			OleUninitialize: "OleUninitialize" [
-				return: [integer!]
-			]
-			OleSetContainedObject: "OleSetContainedObject" [
-				pUnknown   [this!]
-				fContained [logic!]
-				return:    [integer!]
+		"kernel32.dll" stdcall [
+			GlobalAlloc: "GlobalAlloc" [
+				flags		[integer!]
+				size		[integer!]
+				return:		[handle!]
 			]
 		]
 		"user32.dll" stdcall [
@@ -109,95 +95,42 @@ tagSAFEARRAYBOUND: alias struct! [
 				lpwcx		[WNDCLASSEX]
 				return: 	[integer!]
 			]
-			CreateWindowEx: "CreateWindowExW" [
-				dwExStyle	 [integer!]
-				lpClassName	 [c-string!]
-				lpWindowName [c-string!]
-				dwStyle		 [integer!]
-				x			 [integer!]
-				y			 [integer!]
-				nWidth		 [integer!]
-				nHeight		 [integer!]
-				hWndParent	 [handle!]
-				hMenu	 	 [handle!]
-				hInstance	 [handle!]
-				lpParam		 [int-ptr!]
-				return:		 [handle!]
-			]
-			DefWindowProc: "DefWindowProcW" [
-				hWnd		[handle!]
-				msg			[integer!]
-				wParam		[integer!]
-				lParam		[integer!]
-				return: 	[integer!]
-			]
-			ShowWindow: "ShowWindow" [
-				hWnd		[handle!]
-				nCmdShow	[integer!]
-				return:		[logic!]
-			]
-			UpdateWindow: "UpdateWindow" [
-				hWnd		[handle!]
-				return:		[logic!]
-			]
-			GetMessage: "GetMessageW" [
-				msg			[tagMSG]
-				hWnd		[handle!]
-				wParam		[integer!]
-				lParam		[integer!]
-				return: 	[integer!]
-			]
-			TranslateMessage: "TranslateMessage" [
-				msg			[tagMSG]
-				return: 	[logic!]
-			]
-			DispatchMessage: "DispatchMessageW" [
-				msg			[tagMSG]
-				return: 	[integer!]
-			]
-			PostQuitMessage: "PostQuitMessage" [
-				nExitCode	[integer!]
-			]
 			GetClientRect: "GetClientRect" [
 				hWnd		[handle!]
 				lpRect		[RECT_STRUCT]
 				return:		[integer!]
 			]
 		]
+		"ole32.dll" stdcall [
+			CoGetClassObject: "CoGetClassObject" [
+				rclsid		 [int-ptr!]
+				dwClsContext [integer!]
+				pServerInfo  [int-ptr!]
+				riid		 [int-ptr!]
+				ppv			 [interface!]
+				return:		 [integer!]
+			]
+			OleSetContainedObject: "OleSetContainedObject" [
+				pUnknown   [this!]
+				fContained [logic!]
+				return:    [integer!]
+			]
+		]
 		"oleaut32.dll" stdcall [
-			SysAllocString: "SysAllocString" [
-				psz		[c-string!]
-				return:	[byte-ptr!]
-			]
-			SysFreeString: "SysFreeString" [
-				bstr	[byte-ptr!]
-			]
-			VariantInit: "VariantInit" [
-				pvarg	[tagVARIANT]
-			]
-			VariantClear: "VariantClear" [
-				pvarg	[tagVARIANT]
-			]
-			SafeArrayCreateVector: "SafeArrayCreateVector" [
-				type	[integer!]
-				start	[integer!]
-				size	[integer!]
-				return: [int-ptr!]
-			]
 			SafeArrayCreate: "SafeArrayCreate" [
 				vt    [integer!]
 				cDims [integer!]
 				rgsabound [tagSAFEARRAYBOUND]
 				return: [int-ptr!]
 			]
-			SafeArrayAccessData: "SafeArrayAccessData" [
-				psa		[integer!]
-				ppvData [int-ptr!]
-				return: [integer!]
-			]
-			SafeArrayDestroy: "SafeArrayDestroy" [
-				psa		[integer!]
-				return:	[integer!]
+		]
+		"user32.dll" stdcall [
+			DefWindowProc: "DefWindowProcW" [
+				hWnd		[handle!]
+				msg			[integer!]
+				wParam		[integer!]
+				lParam		[integer!]
+				return: 	[integer!]
 			]
 		]
 	]
@@ -252,7 +185,7 @@ tagOIFI!: alias struct! [
 
 CLSID_WebBrowser: [8856F961h 11D0340Ah C0006BA9h A205D74Fh]
 
-#define THIS(obj) [as this! obj/ptr]
+#define AS_THIS(obj) [as this! obj/ptr]
 #define IS_INTERFACE(a b) [0 = compare-memory as byte-ptr! a as byte-ptr! b 16]
 #define HEXA(a) [as int-ptr! a]
 
@@ -295,39 +228,41 @@ hInstance:  as handle! 0
 ArrayBound: declare tagSAFEARRAYBOUND [1 0] ;// This is used by DisplayHTMLStr(). It can be global because we never change it.
 
 
-IOleClientSiteImpl!: alias struct! [
+BrowserImpl!: alias struct! [
+	object  [interface!]
+	window  [handle!]
 	client  [IOleClientSite!]	  ;// My IOleClientSite object. Must be first.
 	inplace [IOleInPlaceSite!]    ;// My IOleInPlaceSite object. A convenient place to put it.
 	frame   [IOleInPlaceFrame!]
 	ui      [IDocHostUIHandler!]  ;// My IDocHostUIHandler object. Must be first within my _IDocHostUIHandlerEx.
-	browserObject [interface!]
-	window  [handle!]
 	service [IServiceProvider!]
 ]
 
 ServiceProvider_QueryInterface: func[
+	[callback]
 	this		[this!]
 	riid		[int-ptr!]
 	ppvObject	[interface!]
 	return:		[integer!]
 ][
-	TRACE(["ServiceProvider_QueryInterface-> this: " this " riid:" riid])
+	;TRACE(["ServiceProvider_QueryInterface-> this: " this " riid:" riid])
 	;Site_QueryInterface 
 	;	as this! ((as int-ptr! this) - 3)
 	;	riid
 	;	ppvObject
 	E_NOINTERFACE
 ]
-ServiceProvider_AddRef:    func [this [this!] return: [integer!]][ 1 ]
-ServiceProvider_Release:   func [this [this!] return: [integer!]][ 1 ]
+ServiceProvider_AddRef:    func [[callback] this [this!] return: [integer!]][ 1 ]
+ServiceProvider_Release:   func [[callback] this [this!] return: [integer!]][ 1 ]
 ServiceProvider_QueryService: func [
+	[callback]
 	this [this!]
 	guidService [int-ptr!]   ;/* [annotation][in] */ _In_  REFGUID guidService,
 	riid        [int-ptr!]   ;/* [annotation][in] */ _In_  REFIID riid,
 	ppvObject   [interface!] ;/* [annotation][out] */ _Outptr_  void **ppvObject);
 	return:     [integer!] 
 ][
-	TRACE(["MyIServiceProvider/QueryService " this " " iid-to-str riid])
+	;TRACE(["MyIServiceProvider/QueryService " this " " iid-to-str riid])
 	E_NOINTERFACE
 ]
 
@@ -346,20 +281,22 @@ MyIServiceProvider/QueryService:   :ServiceProvider_QueryService
 ;--// NOTE: You need at least IE 4.0. Previous versions do not ask for, nor utilize, our IDocHostUIHandler functions.
 
 UI_QueryInterface: func[
+	[callback]
 	this		[this!]
 	riid		[int-ptr!]
 	ppvObject	[interface!]
 	return:		[integer!]
 ][
-	;TRACE(["UI_QueryInterface-> this: " this " riid:" riid])
+	TRACE(["UI_QueryInterface-> this: " this " riid:" riid])
 	Site_QueryInterface 
 		as this! ((as int-ptr! this) - 3)
 		riid
 		ppvObject
 ]
-UI_AddRef: func [this [this!] return: [integer!]][ 1 ]
-UI_Release: func [this [this!] return: [integer!]][ 2 ]
+UI_AddRef: func [[callback] this [this!] return: [integer!]][ 1 ]
+UI_Release: func [[callback] this [this!] return: [integer!]][ 2 ]
 UI_ShowContextMenu: func [
+	[callback]
 	this [this!]
 	dwID [integer!]
 	ppt [POINT!]
@@ -368,11 +305,13 @@ UI_ShowContextMenu: func [
 	return: [integer!]
 ][ S_OK ]
 UI_GetHostInfo: func [
+	[callback]
 	this [this!] 
 	pInfo [int-ptr!] ;DOCHOSTUIINFO __RPC_FAR *
 	return: [integer!]
 ][ S_OK ]
 UI_ShowUI: func [
+	[callback]
 	this [this!]
 	dwID [integer!]
 	pActiveObject [int-ptr!] ;IOleInPlaceActiveObject __RPC_FAR *
@@ -381,39 +320,39 @@ UI_ShowUI: func [
 	pDoc [int-ptr!] ;IOleInPlaceUIWindow __RPC_FAR *
 	return: [integer!]
 ][ S_OK ]
-UI_HideUI: func [this [this!] return: [integer!]][ S_OK ]
-UI_UpdateUI: func [this [this!] return: [integer!]][ S_OK ]
-UI_EnableModeless: func [this [this!] fEnable [logic!] return: [integer!]][ S_OK ]
-UI_OnDocWindowActivate: func [this [this!] fActivate [logic!] return: [integer!]][ S_OK ]
-UI_OnFrameWindowActivate: func [this [this!] fActivate [logic!] return: [integer!]][ S_OK ]
+UI_HideUI: func [[callback] this [this!] return: [integer!]][ S_OK ]
+UI_UpdateUI: func [[callback] this [this!] return: [integer!]][ S_OK ]
+UI_EnableModeless: func [[callback] this [this!] fEnable [logic!] return: [integer!]][ S_OK ]
+UI_OnDocWindowActivate: func [[callback] this [this!] fActivate [logic!] return: [integer!]][ S_OK ]
+UI_OnFrameWindowActivate: func [[callback] this [this!] fActivate [logic!] return: [integer!]][ S_OK ]
 UI_ResizeBorder: func [
-	this [this!]
+	[callback] this [this!]
 	prcBorder [LPCRECT!]
 	pUIWindow [int-ptr!] ;IOleInPlaceUIWindow __RPC_FAR *
 	fRameWindow [logic!]
 	return: [integer!]
 ][ S_OK ]
 UI_TranslateAccelerator: func [
-	this [this!]
+	[callback] this [this!]
 	lpMsg [LPMSG!]
 	pguidCmdGroup [int-ptr!] ;const GUID __RPC_FAR *
 	nCmdID [integer!]
 	return: [integer!]
 ][ S_FALSE ]
 UI_GetOptionKeyPath: func [
-	this [this!]
+	[callback] this [this!]
 	pchKey [int-ptr!] ;LPOLESTR __RPC_FAR *
 	dw [integer!]
 	return: [integer!]
 ][ S_FALSE ]
 UI_GetDropTarget: func [
-	this [this!]
+	[callback] this [this!]
 	pDropTarget [int-ptr!] ;IDropTarget __RPC_FAR *
 	ppDropTarget [int-ptr!] ;IDropTarget __RPC_FAR *__RPC_FAR *
 	return: [integer!]
 ][ S_FALSE ]
 UI_GetExternal: func [
-	this [this!]
+	[callback] this [this!]
 	ppDispatch [int-ptr!] ;IDispatch __RPC_FAR *__RPC_FAR *
 	return: [integer!]
 ][
@@ -421,7 +360,7 @@ UI_GetExternal: func [
 	S_FALSE
 ]
 UI_TranslateUrl: func [
-	this [this!]
+	[callback] this [this!]
 	dwTranslate [integer!]
 	pchURLIn [int-ptr!] ;OLECHAR __RPC_FAR *
 	ppchURLOut [int-ptr!] ;OLECHAR __RPC_FAR *__RPC_FAR *
@@ -431,7 +370,7 @@ UI_TranslateUrl: func [
 	S_FALSE
 ]
 UI_FilterDataObject: func [
-	this [this!]
+	[callback] this [this!]
 	pDO [int-ptr!] ;IDataObject __RPC_FAR *
 	ppDORet [int-ptr!] ;IDataObject __RPC_FAR *__RPC_FAR *
 	return: [integer!]
@@ -466,13 +405,13 @@ MyIDocHostUIHandler/FilterDataObject:         :UI_FilterDataObject
 ;--// We give the browser object a pointer to our IOleClientSite object when we call OleCreate() or DoVerb().
 
 Site_QueryInterface: func[
+	[callback]
 	this		[this!]
 	riid		[int-ptr!]
 	ppvObject	[interface!]
 	return:		[integer!]
 ][
-	TRACE(["Site_QueryInterface-> this: " this " ppvObject: " ppvObject " ptr " ppvObject/ptr])
-	
+	;TRACE(["Site_QueryInterface-> this: " this " ppvObject: " ppvObject " ptr " ppvObject/ptr])
 	case [
 	 	any [
 			IS_INTERFACE(riid IID_IUnknown)
@@ -484,21 +423,19 @@ Site_QueryInterface: func[
 		IS_INTERFACE(riid IID_IOleInPlaceSite) [
 			TRACE( ["inplace " ((as int-ptr! this) + 1) " " as int-ptr! (1 + this) ] )
 			ppvObject/ptr: as this! ((as int-ptr! this) + 1)
-			;@@ uncomment debug line bellow and app will crash!
-			;dump-hex4 as int-ptr! ppvObject 
-			;dump-memory as byte-ptr! ppvObject 4 1
+			;dump-memory as byte-ptr! ppvObject 4 2
 			;TRACE( "--------" )
 		]
 		IS_INTERFACE(riid IID_IDocHostUIHandler) [
 			TRACE("ui")
 			ppvObject/ptr: as this! ((as int-ptr! this) + 3)
 		]
-		IS_INTERFACE(riid IID_IServiceProvider) [
-			ppvObject/ptr: as this! ((as int-ptr! this) + 6)
-		]
+	;	IS_INTERFACE(riid IID_IServiceProvider) [
+	;		TRACE("service")
+	;		ppvObject/ptr: as this! ((as int-ptr! this) + 6)
+	;	]
 		true [
-			TRACE(["Unknown interface request: " iid-to-str riid])
-			;@@ this debug line bellow is also causing crash!
+			;TRACE(["Unknown interface request: " iid-to-str riid])
 			;dump-memory as byte-ptr! riid 4 1
 			;TRACE( "          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 			ppvObject/ptr: as this! 0
@@ -507,18 +444,18 @@ Site_QueryInterface: func[
 	]
 	S_OK
 ]
-Site_AddRef: func [this [this!] return: [integer!]][ 1 ]
-Site_Release: func [this [this!] return: [integer!]][ 1 ]
-Site_SaveObject: func [this [this!] return: [integer!]][ NOTIMPLEMENTED ]
-Site_GetMoniker: func [this [this!] dwAssign [integer!] dwWhichMoniker [integer!] ppmk [int-ptr!] return: [integer!]][ NOTIMPLEMENTED ]
-Site_GetContainer: func [this [this!] ppContainer [int-ptr!] return: [integer!]][
+Site_AddRef: func [[callback] this [this!] return: [integer!]][ 1 ]
+Site_Release: func [[callback] this [this!] return: [integer!]][ 1 ]
+Site_SaveObject: func [[callback] this [this!] return: [integer!]][ NOTIMPLEMENTED ]
+Site_GetMoniker: func [[callback] this [this!] dwAssign [integer!] dwWhichMoniker [integer!] ppmk [int-ptr!] return: [integer!]][ NOTIMPLEMENTED ]
+Site_GetContainer: func [[callback] this [this!] ppContainer [int-ptr!] return: [integer!]][
 	TRACE( "Site_GetContainer" )
 	ppContainer/value: 0
 	E_NOINTERFACE
 ]
-Site_ShowObject: func [this [this!] return: [integer!]][ 0 ]
-Site_OnShowWindow: func [this [this!] fShow [logic!] return: [integer!]][ NOTIMPLEMENTED ]
-Site_RequestNewObjectLayout: func [this [this!] return: [integer!]][ NOTIMPLEMENTED ]
+Site_ShowObject: func [[callback] this [this!] return: [integer!]][ 0 ]
+Site_OnShowWindow: func [[callback] this [this!] fShow [logic!] return: [integer!]][ NOTIMPLEMENTED ]
+Site_RequestNewObjectLayout: func [[callback] this [this!] return: [integer!]][ NOTIMPLEMENTED ]
 
 
 MyIOleClientSite: declare IOleClientSite!
@@ -540,6 +477,7 @@ MyIOleClientSite/RequestNewObjectLayout: :Site_RequestNewObjectLayout
 ;--// QueryInterface (ie, Site_QueryInterface) and specifying a REFIID of IID_IOleInPlaceSite.
 
 InPlace_QueryInterface: func[
+	[callback] 
 	this		[this!]
 	riid		[int-ptr!]
 	ppvObject	[interface!]
@@ -553,16 +491,17 @@ InPlace_QueryInterface: func[
 		riid
 		ppvObject
 ]
-InPlace_AddRef: func [this [this!] return: [integer!]][ 1 ]
-InPlace_Release: func [this [this!] return: [integer!]][ 2 ]
+InPlace_AddRef: func [[callback] this [this!] return: [integer!]][ 1 ]
+InPlace_Release: func [[callback] this [this!] return: [integer!]][ 2 ]
 InPlace_GetWindow: func [
+	[callback] 
 	this   [this!]
 	lphwnd [int-ptr!]         ;HWND FAR* 
 	return: [integer!]
 	/local
 		ptr [int-ptr!]
 ][
-	ptr: ((as int-ptr! this) + 4)
+	ptr: ((as int-ptr! this) - 2)
 	TRACE(["InPlace_GetWindow " this  " " ptr ])
 	;dump-hex4  as int-ptr! this
 	lphwnd/value: ptr/value
@@ -570,23 +509,28 @@ InPlace_GetWindow: func [
 	S_OK
 ]
 InPlace_ContextSensitiveHelp: func [
+	[callback] 
 	this   [this!]
 	fEnterMode [logic!]       ;BOOL
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 InPlace_CanInPlaceActivate: func [
+	[callback] 
 	this [this!]
 	return: [integer!]
 ][ S_OK ]
 InPlace_OnInPlaceActivate: func [
+	[callback] 
 	this [this!]
 	return: [integer!]
 ][ S_OK ]
 InPlace_OnUIActivate: func [
+	[callback] 
 	this [this!]
 	return: [integer!]
 ][ S_OK ]
 InPlace_GetWindowContext: func [
+	[callback] 
 	this [this!]
 	lplpFrame [int-ptr!] ;LPOLEINPLACEFRAME FAR* 
 	lplpDoc [int-ptr!] ;LPOLEINPLACEUIWINDOW FAR* 
@@ -620,34 +564,41 @@ InPlace_GetWindowContext: func [
 	S_OK
 ]
 InPlace_Scroll: func [
+	[callback] 
 	this [this!]
 	scrollExtent [SIZE!]
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 InPlace_OnUIDeactivate: func [
+	[callback] 
 	this [this!]
 	fUndoable [logic!]
 	return: [integer!]
 ][ S_OK ]
 InPlace_OnInPlaceDeactivate: func [
+	[callback] 
 	this [this!]
 	return: [integer!]
 ][ S_OK ]
 InPlace_DiscardUndoState: func [
+	[callback] 
 	this [this!]
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 InPlace_DeactivateAndUndo: func [
+	[callback] 
 	this [this!]
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 InPlace_OnPosRectChange: func [
 ;// Called when the position of the browser object is changed, such as when we call the IWebBrowser2's put_Width(),
 ;// put_Height(), put_Left(), or put_Right().
+	[callback] 
 	this [this!]
 	lprcPosRect [LPCRECT!]
 	return: [integer!]
 	/local
+		browser       [BrowserImpl!]
 		browserObject [interface!]
 		iObject       [IOleObject!]
 		inplace       [IOleInPlaceObject!]
@@ -655,17 +606,16 @@ InPlace_OnPosRectChange: func [
 		IH            [interface!]
 		hr            [integer!]
 ][
-	;TRACE(["InPlace_OnPosRectChange " this])
-	ptr: (as int-ptr! this) + 3
-	browserObject: as interface! ptr/value
+	TRACE(["InPlace_OnPosRectChange " this])
+	browser: as BrowserImpl! ((as int-ptr! this) - 3)
+	browserObject: browser/object
 	iObject: as IOleObject! browserObject/ptr/vtbl
-	;TRACE(["browserObject: " browserObject " " iObject])
 	IH: declare interface!
-	hr: iObject/QueryInterface THIS(browserObject) IID_IOleInPlaceObject IH
+	hr: iObject/QueryInterface AS_THIS(browserObject) IID_IOleInPlaceObject IH
 	if hr = 0 [
 		inplace: as IOleInPlaceObject! IH/ptr/vtbl
-		inplace/SetObjectRects THIS(IH) lprcPosRect lprcPosRect
-		inplace/Release THIS(IH)
+		inplace/SetObjectRects AS_THIS(IH) lprcPosRect lprcPosRect
+		inplace/Release AS_THIS(IH)
 	]
 	S_OK
 ]
@@ -692,6 +642,7 @@ MyIOleInPlaceSite/OnPosRectChange:            :InPlace_OnPosRectChange
 ;--////////////////////////////////////// My IOleInPlaceFrame functions  /////////////////////////////////////////
 
 Frame_QueryInterface: func[
+	[callback] 
 	this		[this!]
 	riid		[int-ptr!]
 	ppvObject	[interface!]
@@ -701,9 +652,10 @@ Frame_QueryInterface: func[
 ][
 	NOTIMPLEMENTED
 ]
-Frame_AddRef: func [this [this!] return: [integer!]][ 1 ]
-Frame_Release: func [this [this!] return: [integer!]][ 1 ]
+Frame_AddRef: func [[callback] this [this!] return: [integer!]][ 1 ]
+Frame_Release: func [[callback] this [this!] return: [integer!]][ 1 ]
 Frame_GetWindow: func [
+	[callback] 
 	this   [this!]
 	lphwnd [int-ptr!]         ;HWND FAR* 
 	return: [integer!]
@@ -711,44 +663,51 @@ Frame_GetWindow: func [
 		ptr [int-ptr!]
 ][
 	TRACE( ["Frame_GetWindow " this] )
-	ptr: (as int-ptr! this) + 3
+	ptr: (as int-ptr! this) - 3
 	lphwnd/value: ptr/value
 	TRACE( ["lphwnd/value: " HEXA(lphwnd/value)] )
 	S_OK
 ]
 Frame_ContextSensitiveHelp: func [
+	[callback] 
 	this   [this!]
 	fEnterMode [logic!]       ;BOOL
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 Frame_GetBorder: func [
+	[callback] 
 	this   [this!]
 	lprectBorder [LPRECT!]
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 Frame_RequestBorderSpace: func [
+	[callback] 
 	this   [this!]
 	pborderwidths [LPCBORDERWIDTHS!]
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 Frame_SetBorderSpace: func [
+	[callback] 
 	this   [this!]
 	pborderwidths [LPCBORDERWIDTHS!]
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 Frame_SetActiveObject: func [
+	[callback] 
 	this   [this!]
 	pActiveObject [int-ptr!]  ;IOleInPlaceActiveObject *
 	pszObjName [int-ptr!]     ;LPCOLESTR
 	return: [integer!]
 ][ S_OK ]
 Frame_InsertMenus: func [
+	[callback] 
 	this   [this!]
 	hmenuShared [int-ptr!] ;HMENU
 	lpMenuWidths [int-ptr!] ;LPOLEMENUGROUPWIDTHS 
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 Frame_SetMenu: func [
+	[callback] 
 	this   [this!]
 	hmenuShared [int-ptr!] ;HMENU
 	holemenu [int-ptr!] ;HOLEMENU
@@ -756,21 +715,25 @@ Frame_SetMenu: func [
 	return: [integer!]
 ][ S_OK ]
 Frame_RemoveMenus: func [
+	[callback] 
 	this   [this!]
 	hmenuShared [int-ptr!] ;HMENU
 	return: [integer!]
 ][ NOTIMPLEMENTED ]
 Frame_SetStatusText: func [
+	[callback] 
 	this   [this!]
 	pszStatusText [int-ptr!] ;LPCOLESTR
 	return: [integer!]
 ][ S_OK ]
 Frame_EnableModeless: func [
+	[callback] 
 	this   [this!]
 	fEnable [logic!]
 	return: [integer!]
 ][ S_OK ]
 Frame_TranslateAccelerator: func [
+	[callback] 
 	this   [this!]
 	lpmsg  [LPMSG!]
 	wID    [integer!] ;@@ SHOULD BE WORD
@@ -813,7 +776,7 @@ DisplayHTMLStr: func[
 	return: [integer!]
 	/local
 		hr            [integer!]
-		browserObject [interface!]
+		browser       [BrowserImpl!]
 		iWebBrowser2  [interface!]
 		webBrowser2   [IWebBrowser2!]
 		iObject       [IOleObject!]
@@ -832,10 +795,10 @@ DisplayHTMLStr: func[
 	sfArray: declare int-ptr! 0
 	pVar: declare int-ptr!
 
-	browserObject: as interface! GetWindowLong hWnd GWL_USERDATA
-	iObject: as IOleObject! browserObject/ptr/vtbl
-	TRACE( ["browserObject: " browserObject] )
-	if 0 = iObject/QueryInterface THIS(browserObject) IID_IWebBrowser2 iWebBrowser2 [
+	browser: as BrowserImpl! GetWindowLong hWnd GWL_USERDATA
+	iObject: as IOleObject! browser/object/ptr/vtbl
+	TRACE( ["browserObject: " iObject " " browser/object/ptr] )
+	if 0 = iObject/QueryInterface browser/object/ptr IID_IWebBrowser2 iWebBrowser2 [
 		webBrowser2: as IWebBrowser2! iWebBrowser2/ptr/vtbl
 		TRACE( ["webBrowser2: " webBrowser2] )
 		var: declare tagVARIANT
@@ -843,26 +806,26 @@ DisplayHTMLStr: func[
 		var/data1: VT_BSTR
 		var/data3: as-integer SysAllocString #u16 "about:blank"
 
-		hr: webBrowser2/Navigate2 THIS(iWebBrowser2) var null null null null
+		hr: webBrowser2/Navigate2 AS_THIS(iWebBrowser2) var null null null null
 		TRACE( ["webBrowser2/Navigate2 " hr] )
 
 		VariantClear var
 
 		;// Call the IWebBrowser2 object's get_Document so we can get its DISPATCH object. I don't know why you
 		;// don't get the DISPATCH object via the browser object's QueryInterface(), but you don't.
-		if 0 = webBrowser2/get_Document THIS(iWebBrowser2) lpDispatch [
+		if 0 = webBrowser2/get_Document AS_THIS(iWebBrowser2) lpDispatch [
 			TRACE( ["lpDispatch: " lpDispatch] )
 			;// We want to get a pointer to the IHTMLDocument2 object embedded within the DISPATCH
 			;// object, so we can call some of the functions in the former's table.
 			iDispatch: as IDispatch! lpDispatch/ptr/vtbl
-			if 0 = iDispatch/QueryInterface THIS(lpDispatch) IID_IHTMLDocument2 iHtmlDoc2 [
+			if 0 = iDispatch/QueryInterface AS_THIS(lpDispatch) IID_IHTMLDocument2 iHtmlDoc2 [
 				TRACE( ["iHtmlDoc2: " iHtmlDoc2] )
 				htmlDoc2: as IHTMLDocument2! iHtmlDoc2/ptr/vtbl
 				;// Our HTML must be in the form of a BSTR. And it must be passed to write() in an
 				;// array of "VARIENT" structs. So let's create all that.
 
 				sfArray: SafeArrayCreate VT_VARIANT 1 ArrayBound
-				TRACE( ["sfArray: " sfArray] )
+				TRACE( ["sfArray: " sfArray ] )
 				if null <> sfArray [
 					if 0 = SafeArrayAccessData as integer! sfArray pVar [
 						var: as tagVARIANT pVar/value
@@ -871,12 +834,12 @@ DisplayHTMLStr: func[
 						if 0 <> var/data3 [
 							;// Pass the VARIENT with its BSTR to write() in order to shove our desired HTML string
 							;// into the body of that empty page we created above.
-							hr: htmlDoc2/write THIS(iHtmlDoc2) sfArray
+							hr: htmlDoc2/write AS_THIS(iHtmlDoc2) sfArray
 							TRACE( ["htmlDoc2/write: " hr] )
 
 							;// Close the document. If we don't do this, subsequent calls to DisplayHTMLStr
 							;// would append to the current contents of the page
-							hr: htmlDoc2/close THIS(iHtmlDoc2)
+							hr: htmlDoc2/close AS_THIS(iHtmlDoc2)
 							TRACE( ["htmlDoc2/close: " hr] )
 							
 							;// Normally, we'd need to free our BSTR, but SafeArrayDestroy() does it for us
@@ -884,17 +847,17 @@ DisplayHTMLStr: func[
 					]
 					;// Free the array. This also frees the VARIENT that SafeArrayAccessData created for us,
 					;// and even frees the BSTR we allocated with SysAllocString
-					SafeArrayDestroy as integer! sfArray
+					;SafeArrayDestroy as integer! sfArray
 				]
 				;// Release the IHTMLDocument2 object.
 
-				htmlDoc2/Release THIS(iHtmlDoc2)
+				htmlDoc2/Release AS_THIS(iHtmlDoc2)
 			]
 			;// Release the DISPATCH object.
-			iDispatch/Release THIS(lpDispatch)
+			iDispatch/Release AS_THIS(lpDispatch)
 		]
 		;// Release the IWebBrowser2 object.
-		webBrowser2/Release THIS(iWebBrowser2)
+		webBrowser2/Release AS_THIS(iWebBrowser2)
 	]
 	0
 ]
@@ -905,7 +868,7 @@ DisplayHTMLPage: func[
 	return: [integer!]
 	/local
 		hr            [integer!]
-		browserObject [interface!]
+		browser       [BrowserImpl!]
 		iWebBrowser2  [interface!]
 		webBrowser2   [IWebBrowser2!]
 		iObject       [IOleObject!]
@@ -913,10 +876,10 @@ DisplayHTMLPage: func[
 ][
 	TRACE( "^/== DisplayHTMLPage ==" )
 	iWebBrowser2: declare interface!
-	browserObject: as interface! GetWindowLong hWnd GWL_USERDATA
-	iObject: as IOleObject! browserObject/ptr/vtbl
-	TRACE( ["browserObject: " browserObject] )
-	if 0 = iObject/QueryInterface THIS(browserObject) IID_IWebBrowser2 iWebBrowser2 [
+	browser: as BrowserImpl! GetWindowLong hWnd GWL_USERDATA
+	iObject: as IOleObject! browser/object/ptr/vtbl
+	TRACE( ["browserObject: " iObject " " browser/object/ptr] )
+	if 0 = iObject/QueryInterface browser/object/ptr IID_IWebBrowser2 iWebBrowser2 [
 		webBrowser2: as IWebBrowser2! iWebBrowser2/ptr/vtbl
 		TRACE( ["webBrowser2: " webBrowser2] )
 		var: declare tagVARIANT
@@ -924,14 +887,13 @@ DisplayHTMLPage: func[
 		var/data1: VT_BSTR
 		var/data3: as-integer SysAllocString url
 
-		hr: webBrowser2/Navigate2 THIS(iWebBrowser2) var null null null null
+		hr: webBrowser2/Navigate2 AS_THIS(iWebBrowser2) var null null null null
 		TRACE( ["webBrowser2/Navigate2 " hr] )
 
 		VariantClear var
-
 		
 		;// Release the IWebBrowser2 object.
-		webBrowser2/Release THIS(iWebBrowser2)
+		webBrowser2/Release AS_THIS(iWebBrowser2)
 	]
 	0
 ]
@@ -942,23 +904,23 @@ ResizeBrowser: func[
 	height  [integer!]
 	/local
 		hr            [integer!]
-		browserObject [interface!]
+		browser       [BrowserImpl!]
 		iWebBrowser2  [interface!]
 		webBrowser2   [IWebBrowser2!]
 		iObject       [IOleObject!]
 
 ][
-	;TRACE( "^/== ResizeBrowser ==" )
+	TRACE( ["^/== ResizeBrowser ==" hWnd] )
 	iWebBrowser2: declare interface!
-	browserObject: as interface! GetWindowLong hWnd GWL_USERDATA
-	iObject: as IOleObject! browserObject/ptr/vtbl
-	;TRACE( ["browserObject: " browserObject] )
-	if 0 = iObject/QueryInterface THIS(browserObject) IID_IWebBrowser2 iWebBrowser2 [
+	browser: as BrowserImpl! GetWindowLong hWnd GWL_USERDATA
+	iObject: as IOleObject! browser/object/ptr/vtbl
+	TRACE( ["browserObject: " iObject " " browser/object/ptr] )
+	if 0 = iObject/QueryInterface browser/object/ptr IID_IWebBrowser2 iWebBrowser2 [
 		webBrowser2: as IWebBrowser2! iWebBrowser2/ptr/vtbl
-		;TRACE( ["webBrowser2: " webBrowser2] )
-		webBrowser2/put_Width THIS(iWebBrowser2) width
-		webBrowser2/put_Height THIS(iWebBrowser2) height
-		webBrowser2/Release THIS(iWebBrowser2)
+		TRACE( ["webBrowser2: " webBrowser2] )
+		webBrowser2/put_Width AS_THIS(iWebBrowser2) width
+		webBrowser2/put_Height AS_THIS(iWebBrowser2) height
+		webBrowser2/Release AS_THIS(iWebBrowser2)
 	]
 ]
 EmbedBrowserObject: func[
@@ -966,10 +928,11 @@ EmbedBrowserObject: func[
 	return: [integer!]
 	/local
 		hr [integer!]
-		iOleClientSiteImpl [IOleClientSiteImpl!]
+		browser [BrowserImpl!]
+		browserObject [interface!]
+		iBrowser [interface!]
 		ptr [handle!]
 		IH [interface!]
-		browserObject [interface!]
 		webBrowser2 [IWebBrowser2!]
 		iObject [IOleObject!]
 		factory [IClassFactory!] 
@@ -977,26 +940,24 @@ EmbedBrowserObject: func[
 		size [integer!]
 		rc [RECT_STRUCT]
 ][
-	ptr: GlobalAlloc 40h (size? iOleClientSiteImpl!)
+	ptr: GlobalAlloc 40h (size? BrowserImpl!)
 
-	TRACE( ["ptr: " ptr " size: " (size? iOleClientSiteImpl!) ] )
+	TRACE( ["ptr: " ptr " size: " (size? BrowserImpl!) " hwnd: " hwnd ])
 
 	IH: declare interface!
-	browserObject: declare interface!
-
-;	dump-hex4  ptr
-
+	
 	TRACE( ["pClassFactory: " IH] )
 
-	iOleClientSiteImpl: as IOleClientSiteImpl! ptr
+	browserObject: as interface! GlobalAlloc 40h (size? interface!)
 
-	iOleClientSiteImpl/client:  MyIOleClientSite
-	iOleClientSiteImpl/inplace: MyIOleInPlaceSite
-	iOleClientSiteImpl/frame:   MyIOleInPlaceFrame
-	iOleClientSiteImpl/ui:      MyIDocHostUIHandler
-	iOleClientSiteImpl/browserObject: browserObject
-	iOleClientSiteImpl/window:  hwnd
-	iOleClientSiteImpl/service: MyIServiceProvider
+	browser: as BrowserImpl! ptr
+	browser/object: browserObject
+	browser/window:  hwnd
+	browser/client:  MyIOleClientSite
+	browser/inplace: MyIOleInPlaceSite
+	browser/frame:   MyIOleInPlaceFrame
+	browser/ui:      MyIDocHostUIHandler
+	browser/service: MyIServiceProvider
 
 	hr: CoGetClassObject CLSID_WebBrowser (CLSCTX_INPROC_SERVER or CLSCTX_INPROC_HANDLER) null IID_IClassFactory IH
 	;TRACE( ["CoGetClassObject-> " as int-ptr! hr " " IH/ptr " " as int-ptr! IH/ptr/vtbl] )
@@ -1005,63 +966,59 @@ EmbedBrowserObject: func[
 		;if (!pClassFactory->lpVtbl->CreateInstance(pClassFactory, 0, &IID_IOleObject, &browserObject))
 		factory: as IClassFactory! IH/ptr/vtbl
 		hr: factory/CreateInstance IH/ptr null IID_IOleObject browserObject
-		;TRACE( ["CreateInstance-> " hr " " browserObject/ptr] )
+		TRACE( ["CreateInstance-> " hr " " factory " " browser/object " " browserObject] )
 
-		#if debug? = yes [
-			print "PTR:" dump-hex4  ptr
-			TRACE( "----------------------------------------------------------" )
-			TRACE( ["MyIOleClientSite:    " ptr     " " MyIOleClientSite ] )
-			TRACE( ["MyIOleInPlaceSite:   " ptr + 1 " " MyIOleInPlaceSite ] )
-			TRACE( ["MyIOleInPlaceFrame:  " ptr + 2 " " MyIOleInPlaceFrame ] )
-			TRACE( ["MyIDocHostUIHandler: " ptr + 3 " " MyIDocHostUIHandler ] )
-			TRACE( ["BrowserObject:       " ptr + 4 " " browserObject] )
-			TRACE( ["Window:              " ptr + 5 " " hWnd] )
-			TRACE( ["MyIServiceProvider:  " ptr + 6 " " MyIServiceProvider] )
-			TRACE( "----------------------------------------------------------" )
-		]
+		#if debug? = yes [print "PTR:" dump-hex4  ptr]
+
+		TRACE( "----------------------------------------------------------" )
+		TRACE( ["BrowserObject:       " ptr     " " browser/object] )
+		TRACE( ["Window:              " ptr + 1 " " browser/window " " hWnd] )
+		TRACE( ["MyIOleClientSite:    " ptr + 2 " " MyIOleClientSite ] )
+		TRACE( ["MyIOleInPlaceSite:   " ptr + 3 " " MyIOleInPlaceSite ] )
+		TRACE( ["MyIOleInPlaceFrame:  " ptr + 4 " " MyIOleInPlaceFrame ] )
+		TRACE( ["MyIDocHostUIHandler: " ptr + 5 " " MyIDocHostUIHandler ] )
+		TRACE( ["MyIServiceProvider:  " ptr + 6 " " MyIServiceProvider] )
+		TRACE( "----------------------------------------------------------" )
 		
 		if all [0 = hr 0 <> as integer! IH/ptr][
 			hr: factory/Release IH/ptr
 			TRACE( ["Release-> " hr] )
 
-			SetWindowLong hwnd GWL_USERDATA as integer! browserObject
+			SetWindowLong hwnd GWL_USERDATA as integer! browser
 
 			;// Give the browser a pointer to my IOleClientSite object
 			iObject: as IOleObject! browserObject/ptr/vtbl
+			TRACE(["iObject: " iObject " ======================= " AS_THIS(browserObject)]) 
 			;status: 0
-            ;hr: iObject/GetMiscStatus THIS(browserObject) 1 :status
+            ;hr: iObject/GetMiscStatus AS_THIS(browserObject) 1 :status
             ;TRACE( ["GetMiscStatus: " hr " " HEXA(status)] )
 
-            ;if (!browserObject->lpVtbl->SetClientSite(browserObject, (IOleClientSite *)_iOleClientSiteEx))
-			TRACE( [">>> " as int-ptr! ptr/1 " " ptr " " as int-ptr! MyIOleClientSite " " iOleClientSiteImpl/client " " iObject] )
-			hr: iObject/SetClientSite THIS(browserObject) as int-ptr! iOleClientSiteImpl
+			hr: iObject/SetClientSite AS_THIS(browserObject) (ptr + 2)
 			TRACE( ["SetClientSite " hr] )
-			;hr: iObject/GetClientSite THIS(browserObject) IH
-			;TRACE( ["GetClientSite " hr " " as int-ptr! iOleClientSiteImpl " " IH/ptr] )
 
 			if 0 = hr [
-				hr: iObject/SetHostNames THIS(browserObject) #u16 "My Host Name" null
-				TRACE( ["SetHostNames: " hr] )
+				hr: iObject/SetHostNames as this! browser #u16 "My Host Name" null
+				TRACE( ["SetHostNames: " hr " == " browserObject " " AS_THIS(browserObject)] )
 
 				rc:  declare RECT_STRUCT [0 0 0 0]
-
+				GetClientRect hWnd rc
 				TRACE( ["Rect: " hr " " rc/left "x" rc/top " " rc/right "x" rc/bottom] )
-				
+
 				if all [
-					0 = OleSetContainedObject THIS(browserObject) true
-					0 = iObject/DoVerb THIS(browserObject) OLEIVERB_SHOW null as int-ptr! iOleClientSiteImpl 0 hWnd rc
-					0 = iObject/QueryInterface THIS(browserObject) IID_IWebBrowser2 IH
+					0 = OleSetContainedObject AS_THIS(browserObject) true
+					0 = iObject/DoVerb AS_THIS(browserObject) OLEIVERB_SHOW null (ptr + 2) 0 hWnd rc
+					0 = iObject/QueryInterface AS_THIS(browserObject) IID_IWebBrowser2 IH
 				][
 					webBrowser2: as IWebBrowser2! IH/ptr/vtbl
-					webBrowser2/put_Left THIS(IH) 0
-					webBrowser2/put_Top THIS(IH) 0
-					webBrowser2/put_Width THIS(IH) rc/right
-					webBrowser2/put_Height THIS(IH) rc/bottom
+					webBrowser2/put_Left AS_THIS(IH) 0
+					webBrowser2/put_Top AS_THIS(IH) 0
+					webBrowser2/put_Width AS_THIS(IH) rc/right
+					webBrowser2/put_Height AS_THIS(IH) rc/bottom
 
 					;// We no longer need the IWebBrowser2 object (ie, we don't plan to call any more functions in it
 					;// right now, so we can release our hold on it). Note that we'll still maintain our hold on the
 					;// browser object until we're done with that object.
-					webBrowser2/Release THIS(IH)
+					webBrowser2/Release AS_THIS(IH)
 					return 0
 				]
 			]
@@ -1070,7 +1027,6 @@ EmbedBrowserObject: func[
 			return -4
 		]
 	]
-
 	0
 ]
 
@@ -1084,30 +1040,22 @@ EmbedBrowserObject: func[
 	    wParam        [integer!]
 	    lParam        [integer!]
 	    return: [integer!]
-	    ;/local
-	        ;nmhdr     [SCNotification!]
 	] [
 		TRACE( ["BrowserWndProc: " msg " hWnd: " hWnd] )
-	    ;switch msg [
-	    ;    WM_COMMAND [
-	    ;        if WIN32_LOWORD(wParam) = SCINTILLA_BASE_ID [
-	;   ;                 TODO: process commands 
-	    ;        ;    ; TRACE( "++COMMAND--" )
-	    ;        ;    ; TRACE( ["cmd_wParam: " WIN32_LOWORD(wParam) " & " WIN32_HIWORD(wParam)] )
-	    ;        ;    ; TRACE( ["cmd_lParam: " WIN32_LOWORD(lParam) " & " WIN32_HIWORD(lParam)] ) 
-	    ;            ; TODO: look at command structure
-	    ;            ""
-	    ;        ]
-	    ;    ]
-	    ;    WM_NOTIFY [
-	    ;        nmhdr: as SCNotification! lParam
-	;   ;         handle: as integer! nmhdr/hwndFrom
-	    ;        if nmhdr/idFrom = SCINTILLA_BASE_ID [
-	    ;            process-code as integer! nmhdr/hwndFrom nmhdr
-	    ;        ]
-	    ;    ]
-	    ;    default [0]
-	    ;]
+	    switch msg [
+	  		5 [;size
+				ResizeBrowser hWnd WIN32_LOWORD(lParam) WIN32_HIWORD(lParam)
+				return 0
+			]
+	    	1 [;create
+				if 0 <> EmbedBrowserObject hWnd [ return -1 ]
+				DisplayHTMLPage hWnd #u16 "file:///X:/GIT/Red/boot.red"
+			]
+			WM_DESTROY [
+				print-line "destroy"
+			]
+	        default []
+	    ]
 	    DefWindowProc hWnd msg wParam lParam
 	]
 
@@ -1121,14 +1069,14 @@ EmbedBrowserObject: func[
 	RegisterClassEx wcex
 
 	gui/register-class [                    ;-- returns old events handler
-	    #u16 "RedBrowser"                                ;-- widget original name
-	    null                                             ;-- new internal name
-	    symbol/make "browser"                            ;-- Red-level style name
-	    0                                                ;-- exStyle flags
-	    0                                                ;-- style flags
-	    0                                               ;-- base ID for instances
-	    null                                            ;-- style custom event handler
-	    null                                    ;-- parent custom event handler
+	    #u16 "RedBrowser"                   ;-- widget original name
+	    null                                ;-- new internal name
+	    symbol/make "browser"               ;-- Red-level style name
+	    0                                   ;-- exStyle flags
+	    0                                   ;-- style flags
+	    0                                   ;-- base ID for instances
+	    null                                ;-- style custom event handler
+	    null                                ;-- parent custom event handler
 	]
 
 ][
@@ -1196,7 +1144,7 @@ EmbedBrowserObject: func[
 				null
 			if null <> hWnd [
 				;DisplayHTMLStr hWnd #u16 "<BODY><H2><CENTER>HTML string test</CENTER></H2><P><FONT COLOR=RED>This is a <U>HTML string</U> in memory.</FONT></BODY>"
-				DisplayHTMLPage hWnd #u16 "http://google.com" ;"http://red-lang.org" ;"https://gitter.im/red/red"
+				DisplayHTMLPage hWnd #u16 "file:///X:/GIT/Red/boot.red" ;"http://google.com" ;"http://red-lang.org" ;"https://gitter.im/red/red"
 				;// Show the window.
 				ShowWindow hWnd SW_SHOWDEFAULT
 				UpdateWindow hWnd

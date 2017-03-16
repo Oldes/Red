@@ -26,7 +26,7 @@ IOleInPlaceObject!: alias struct! [
     ;        __RPC__in IOleInPlaceObject * This);
     UIDeactivate [integer!]
     ;        __RPC__in IOleInPlaceObject * This);
-    SetObjectRects [function! [this [this!] lprcPosRect [LPRECT!] lprcClipRect [LPRECT!] return: [integer!]]]
+    SetObjectRects [function! [[callback] this [this!] lprcPosRect [LPRECT!] lprcClipRect [LPRECT!] return: [integer!]]]
     ReactivateAndUndo [integer!]
     ;        __RPC__in IOleInPlaceObject * This);
 ]

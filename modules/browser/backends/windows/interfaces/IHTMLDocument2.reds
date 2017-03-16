@@ -205,7 +205,7 @@ IHTMLDocument2!: alias struct! [
     get_nameProp [integer!]
     ;        __RPC__in IHTMLDocument2 * This,
     ;        /* [out][retval] */ __RPC__deref_out_opt BSTR *p);
-    write [function! [this [this!] psarray [int-ptr!] return: [integer!]]]
+    write [function! [[callback] this [this!] psarray [int-ptr!] return: [integer!]]]
     writeln [integer!]
     ;        __RPC__in IHTMLDocument2 * This,
     ;        /* [in] */ __RPC__in SAFEARRAY * psarray);
@@ -216,8 +216,8 @@ IHTMLDocument2!: alias struct! [
     ;        /* [in][optional] */ VARIANT features,
     ;        /* [in][optional] */ VARIANT replace,
     ;        /* [out][retval] */ __RPC__deref_out_opt IDispatch **pomWindowResult);
-    close [function! [this [this!] return: [integer!]]]  
-    clear [function! [this [this!] return: [integer!]]]   
+    close [function! [[callback] this [this!] return: [integer!]]]  
+    clear [function! [[callback] this [this!] return: [integer!]]]   
     queryCommandSupported [integer!]
     ;        __RPC__in IHTMLDocument2 * This,
     ;        /* [in] */ __RPC__in BSTR cmdID,

@@ -16,15 +16,15 @@ IOleObject!: alias struct! [
 	QueryInterface       [QueryInterface!]
 	AddRef               [AddRef!]
 	Release              [Release!]
-    SetClientSite        [function! [this [this!] pClientSite [int-ptr!] return: [integer!]]] ;[in, unique] IOleClientSite *pClientSite);
-	GetClientSite        [function! [this [this!] ppClientSite [interface!] return: [integer!]]] ;[out] IOleClientSite **ppClientSite);
-	SetHostNames         [function! [this [this!] szContainerApp [c-string!] szContainerObj [int-ptr!] return: [integer!]]] ;[in] LPCOLESTR szContainerApp,[in, unique] LPCOLESTR szContainerObj);
+    SetClientSite        [function! [[callback] this [this!] pClientSite [int-ptr!] return: [integer!]]] ;[in, unique] IOleClientSite *pClientSite);
+	GetClientSite        [function! [[callback] this [this!] ppClientSite [interface!] return: [integer!]]] ;[out] IOleClientSite **ppClientSite);
+	SetHostNames         [function! [[callback] this [this!] szContainerApp [c-string!] szContainerObj [int-ptr!] return: [integer!]]] ;[in] LPCOLESTR szContainerApp,[in, unique] LPCOLESTR szContainerObj);
 	Close                [integer!] ;[in] DWORD dwSaveOption);
 	SetMoniker           [integer!] ;[in] DWORD dwWhichMoniker,[in, unique] IMoniker *pmk);
 	GetMoniker           [integer!] ;[in] DWORD dwAssign,[in] DWORD dwWhichMoniker,[out] IMoniker **ppmk);
 	InitFromData         [integer!] ;[in, unique] IDataObject *pDataObject,[in] BOOL fCreation,[in] DWORD dwReserved);
 	GetClipboardData     [integer!] ;[in] DWORD dwReserved,[out] IDataObject **ppDataObject);
-	DoVerb               [function! [this [this!] iVerb [integer!] lpmsg [tagMSG] pActiveSite [int-ptr!] lindex [integer!] hwndParent [handle!] lprcPosRect [LPRECT!] return: [integer!]]] ;[in] LONG iVerb,[in, unique] LPMSG lpmsg,[in, unique] IOleClientSite *pActiveSite,[in] LONG lindex,[in] HWND hwndParent,[in, unique] LPCRECT lprcPosRect);
+	DoVerb               [function! [[callback] this [this!] iVerb [integer!] lpmsg [tagMSG] pActiveSite [int-ptr!] lindex [integer!] hwndParent [handle!] lprcPosRect [LPRECT!] return: [integer!]]] ;[in] LONG iVerb,[in, unique] LPMSG lpmsg,[in, unique] IOleClientSite *pActiveSite,[in] LONG lindex,[in] HWND hwndParent,[in, unique] LPCRECT lprcPosRect);
 	EnumVerbs            [integer!] ;[out] IEnumOLEVERB **ppEnumOleVerb);
 	Update               [integer!] ;
 	IsUpToDate           [integer!] ;
@@ -35,6 +35,6 @@ IOleObject!: alias struct! [
 	Advise               [integer!] ;[in, unique] IAdviseSink *pAdvSink,[out] DWORD *pdwConnection);
 	Unadvise             [integer!] ;[in] DWORD dwConnection);
 	EnumAdvise           [integer!] ;[out] IEnumSTATDATA **ppenumAdvise);
-	GetMiscStatus        [function! [this [this!] dwAspect [integer!] pdwStatus [int-ptr!] return: [integer!]]] ;[in] DWORD dwAspect,[out] DWORD *pdwStatus);
+	GetMiscStatus        [function! [[callback] this [this!] dwAspect [integer!] pdwStatus [int-ptr!] return: [integer!]]] ;[in] DWORD dwAspect,[out] DWORD *pdwStatus);
 	SetColorScheme       [integer!] ;[in] LOGPALETTE *pLogpal);
 ]

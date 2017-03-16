@@ -21,7 +21,7 @@ IServiceProvider!: alias struct! [
 	AddRef           [AddRef!]
 	Release          [Release!]
 	QueryService [
-		function! [this [this!]
+		function! [[callback] this [this!]
 			guidService [int-ptr!]   ;/* [annotation][in] */ _In_  REFGUID guidService,
 			riid        [int-ptr!]   ;/* [annotation][in] */ _In_  REFIID riid,
 			ppvObject   [interface!] ;/* [annotation][out] */ _Outptr_  void **ppvObject);
