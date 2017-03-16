@@ -105,6 +105,7 @@ get-face-values: func [
 		s	 [series!]
 ][
 	node: as node! GetWindowLong hWnd wc-offset + 4
+	if null = node [return null]
 	ctx: TO_CTX(node)
 	s: as series! ctx/values/value
 	s/offset
@@ -380,53 +381,57 @@ free-handles: func [
 		handle [handle!]
 ][
 	values: get-face-values hWnd
-	type: as red-word! values + FACE_OBJ_TYPE
-	sym: symbol/resolve type/symbol
+	if null <> values [
+		type: as red-word! values + FACE_OBJ_TYPE
+		sym: symbol/resolve type/symbol
 
-	pane: as red-block! values + FACE_OBJ_PANE
-	if TYPE_OF(pane) = TYPE_BLOCK [
-		face: as red-object! block/rs-head pane
-		tail: as red-object! block/rs-tail pane
-		while [face < tail][
-			handle: face-handle? face
-			if handle <> null [free-handles handle]
-			face: face + 1
-		]
-	]	
-	case [
-		sym = group-box [
-			;-- destroy the extra frame window
-			DestroyWindow as handle! GetWindowLong hWnd wc-offset - 4 as-integer hWnd
-		]
-		sym = camera [
-			cam: as camera! GetWindowLong hWnd wc-offset - 4
-			unless null? cam [
-				teardown-graph cam
-				free-graph cam
+		pane: as red-block! values + FACE_OBJ_PANE
+		if TYPE_OF(pane) = TYPE_BLOCK [
+			face: as red-object! block/rs-head pane
+			tail: as red-object! block/rs-tail pane
+			while [face < tail][
+				handle: face-handle? face
+				if handle <> null [free-handles handle]
+				face: face + 1
+			]
+		]	
+		case [
+			sym = group-box [
+				;-- destroy the extra frame window
+				DestroyWindow as handle! GetWindowLong hWnd wc-offset - 4 as-integer hWnd
+			]
+			sym = camera [
+				cam: as camera! GetWindowLong hWnd wc-offset - 4
+				unless null? cam [
+					teardown-graph cam
+					free-graph cam
+				]
+			]
+			any [sym = window sym = panel sym = base][
+				if zero? (WS_EX_LAYERED and GetWindowLong hWnd GWL_EXSTYLE) [
+					dc: GetWindowLong hWnd wc-offset - 4
+					unless zero? dc [DeleteDC as handle! dc]			;-- delete cached dc
+				]
+				dc: GetWindowLong hWnd wc-offset - 24
+				if dc <> 0 [d2d-release-target as this! dc]
+			]
+			true [
+				print-line ["free-handles " sym]
+				SendMessage hWnd 12h 0 0 ;WM_QUIT
+				0
+				;; handle user-provided classes too
 			]
 		]
-		any [sym = window sym = panel sym = base][
-			if zero? (WS_EX_LAYERED and GetWindowLong hWnd GWL_EXSTYLE) [
-				dc: GetWindowLong hWnd wc-offset - 4
-				unless zero? dc [DeleteDC as handle! dc]			;-- delete cached dc
-			]
-			dc: GetWindowLong hWnd wc-offset - 24
-			if dc <> 0 [d2d-release-target as this! dc]
+		either sym = window [
+			SetWindowLong hWnd wc-offset - 4 -1
+			PostMessage hWnd WM_CLOSE 0 0
+		][
+			DestroyWindow hWnd
 		]
-		true [
-			0
-			;; handle user-provided classes too
-		]
-	]
-	either sym = window [
-		SetWindowLong hWnd wc-offset - 4 -1
-		PostMessage hWnd WM_CLOSE 0 0
-	][
-		DestroyWindow hWnd
-	]
 
-	state: values + FACE_OBJ_STATE
-	state/header: TYPE_NONE
+		state: values + FACE_OBJ_STATE
+		state/header: TYPE_NONE
+	]
 ]
 
 set-defaults: func [
