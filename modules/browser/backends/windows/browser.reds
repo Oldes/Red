@@ -1050,6 +1050,7 @@ EmbedBrowserObject: func[
 	    	1 [;create
 				if 0 <> EmbedBrowserObject hWnd [ return -1 ]
 				DisplayHTMLPage hWnd #u16 "file:///X:/GIT/Red/boot.red"
+				return 0
 			]
 			WM_DESTROY [
 				print-line "destroy"
@@ -1095,9 +1096,7 @@ EmbedBrowserObject: func[
 				return 0
 			]
 			1 [;create
-				if 0 <> EmbedBrowserObject hWnd [
-					return -1
-				]
+				return either 0 <> EmbedBrowserObject hWnd [0][-1]
 			]
 			2 [;destroy
 				PostQuitMessage 0
