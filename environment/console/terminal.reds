@@ -287,6 +287,7 @@ terminal: context [
 			max		[integer!]
 			count	[integer!]
 			full?	[logic!]
+			skip    [integer!]
 	][
 		out: vt/out
 		full?: out/full?
@@ -307,14 +308,23 @@ terminal: context [
 		cp: 0
 
 		until [
-			if p <> tail [
+			if p < tail [
 				cp: string/get-char p unit
 				p: p + unit
 
-				either cp = 9 [
-					buf: string/concatenate-literal data "    "
-				][
-					buf: string/append-char buf cp
+				case [
+					cp = 9 [buf: string/concatenate-literal data "    "]
+					cp = 27 [
+						skip: process-ansi-sequence p tail unit
+						either skip = 0 [ ;not valid sequence, so better to print it out
+							buf: string/append-char buf cp
+						][
+							p: p + skip
+						]
+					]
+					true [
+						buf: string/append-char buf cp
+					]
 				]
 			]
 			if any [cp = 10 p = tail][
