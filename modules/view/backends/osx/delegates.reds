@@ -42,14 +42,33 @@ become-first-responder: func [
 	msg-send-super-logic self cmd
 ]
 
+reset-cursor-rects: func [
+	[cdecl]
+	self	[integer!]
+	cmd		[integer!]
+	/local
+		cur [integer!]
+		rc	[NSRect! value]
+][
+	cur: objc_getAssociatedObject self RedCursorKey
+	if cur <> 0 [
+		rc: objc_msgSend_rect [self sel_getUid "bounds"]
+		objc_msgSend [
+			self sel_getUid "addCursorRect:cursor:" rc/x rc/y rc/w rc/h cur
+		]
+	]
+]
+
 mouse-entered: func [
 	[cdecl]
 	self	[integer!]
 	cmd		[integer!]
 	event	[integer!]
 ][
-	objc_setAssociatedObject self RedNSEventKey event OBJC_ASSOCIATION_ASSIGN
-	make-event self 0 EVT_OVER
+	if zero? objc_getAssociatedObject self RedEnableKey [
+		objc_setAssociatedObject self RedNSEventKey event OBJC_ASSOCIATION_ASSIGN
+		make-event self 0 EVT_OVER
+	]
 ]
 
 mouse-exited: func [
@@ -58,8 +77,10 @@ mouse-exited: func [
 	cmd		[integer!]
 	event	[integer!]
 ][
-	objc_setAssociatedObject self RedNSEventKey event OBJC_ASSOCIATION_ASSIGN
-	make-event self EVT_FLAG_AWAY EVT_OVER
+	if zero? objc_getAssociatedObject self RedEnableKey [
+		objc_setAssociatedObject self RedNSEventKey event OBJC_ASSOCIATION_ASSIGN
+		make-event self EVT_FLAG_AWAY EVT_OVER
+	]
 ]
 
 mouse-moved: func [
@@ -70,10 +91,12 @@ mouse-moved: func [
 	/local
 		flags [integer!]
 ][
-	objc_setAssociatedObject self RedNSEventKey event OBJC_ASSOCIATION_ASSIGN
-	flags: get-flags (as red-block! get-face-values self) + FACE_OBJ_FLAGS
-	if flags and FACET_FLAGS_ALL_OVER <> 0 [
-		make-event self 0 EVT_OVER
+	if zero? objc_getAssociatedObject self RedEnableKey [
+		objc_setAssociatedObject self RedNSEventKey event OBJC_ASSOCIATION_ASSIGN
+		flags: get-flags (as red-block! get-face-values self) + FACE_OBJ_FLAGS
+		if flags and FACET_FLAGS_ALL_OVER <> 0 [
+			make-event self 0 EVT_OVER
+		]
 	]
 ]
 
@@ -178,9 +201,12 @@ mouse-events: func [
 		NSRightMouseDragged	
 		NSOtherMouseDragged	[
 			opt: (get-face-values self) + FACE_OBJ_OPTIONS
-			either any [
-				TYPE_OF(opt) = TYPE_BLOCK
-				0 <> objc_getAssociatedObject self RedAllOverFlagKey
+			either all [
+				zero? objc_getAssociatedObject self RedEnableKey
+				any [
+					TYPE_OF(opt) = TYPE_BLOCK
+					0 <> objc_getAssociatedObject self RedAllOverFlagKey
+				]
 			][
 				make-event self flags EVT_OVER
 			][
@@ -832,13 +858,13 @@ render-text: func [
 	flags: either TYPE_OF(para) = TYPE_OBJECT [		;@@ TBD set alignment attribute
 		get-para-flags base para
 	][
-		1 or 4										;-- center
+		2 or 4										;-- center
 	]
 
 	m: make-CGMatrix 1 0 0 -1 0 0
 	case [
-		flags and 1 <> 0 [temp: sz/w - rc/x m/tx: temp / 2]
-		flags and 2 <> 0 [m/tx: sz/w - rc/x]
+		flags and 1 <> 0 [m/tx: sz/w - rc/x]
+		flags and 2 <> 0 [temp: sz/w - rc/x m/tx: temp / 2]
 		true [0]
 	]
 
@@ -855,10 +881,18 @@ render-text: func [
 	line: CTLineCreateWithAttributedString attr
 	CGContextSetTextMatrix ctx m/a m/b m/c m/d m/tx m/ty
 	CTLineDraw line ctx
-
 	CFRelease str
 	CFRelease attr
 	CFRelease line
+
+	attr: objc_msgSend [attrs sel_getUid "objectForKey:" NSStrikethroughStyleAttributeName]
+	if as logic! objc_msgSend [attr sel_getUid "boolValue"][
+		m/ty: m/ty - temp + (rc/y / as float32! 2.0)
+		CGContextTranslateCTM ctx m/tx m/ty
+		CGContextMoveToPoint ctx as float32! 0.0 as float32! 0.0
+		CGContextAddLineToPoint ctx rc/x as float32! 0.0
+		CGContextStrokePath ctx
+	]
 	objc_msgSend [attrs sel_getUid "release"]
 	CGContextRestoreGState ctx
 ]
@@ -1121,9 +1155,7 @@ draw-rect: func [
 		paint-background ctx clr/array1 x y width height
 	]
 	if TYPE_OF(img) = TYPE_IMAGE [
-		bmp: CGBitmapContextCreateImage as-integer img/node 
-		CG-draw-image ctx bmp 0 0 size/x size/y
-		CGImageRelease bmp
+		CG-draw-image ctx OS-image/to-cgimage img 0 0 size/x size/y
 	]
 	if (object_getClass self) = objc_getClass "RedBase" [
 		render-text ctx vals as NSSize! (as int-ptr! self) + 8
@@ -1131,15 +1163,15 @@ draw-rect: func [
 
 	img: as red-image! (as int-ptr! self) + 8				;-- view's size
 	either TYPE_OF(draw) = TYPE_BLOCK [
-		do-draw ctx img draw no yes yes yes
+		do-draw ctx img draw no yes no yes
 	][
 		system/thrown: 0
 		DC: declare draw-ctx!								;@@ should declare it on stack
-		draw-begin DC ctx img no yes
+		draw-begin DC ctx img no no
 		integer/make-at as red-value! draw as-integer DC
 		make-event self 0 EVT_DRAWING
 		draw/header: TYPE_NONE
-		draw-end DC ctx no no yes
+		draw-end DC ctx no no no
 	]
 ]
 

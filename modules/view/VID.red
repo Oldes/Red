@@ -236,7 +236,7 @@ system/view/VID: context [
 			match?: parse spec [[
 				  ['left | 'center | 'right]	 (opt?: add-flag opts 'para 'align value)
 				| ['top  | 'middle | 'bottom]	 (opt?: add-flag opts 'para 'v-align value)
-				| ['bold | 'italic | 'underline] (opt?: add-flag opts 'font 'style value)
+				| ['bold | 'italic | 'underline | 'strike] (opt?: add-flag opts 'font 'style value)
 				| 'extra	  (opts/extra: fetch-value spec: next spec)
 				| 'data		  (opts/data: fetch-expr 'spec spec: back spec)
 				| 'draw		  (opts/draw: process-draw fetch-argument block! spec)
@@ -248,6 +248,7 @@ system/view/VID: context [
 				| 'font-name  (add-flag opts 'font 'name  fetch-argument string! spec)
 				| 'font-size  (add-flag opts 'font 'size  fetch-argument integer! spec)
 				| 'font-color (add-flag opts 'font 'color pre-load fetch-argument color! spec)
+				| 'options	  (add-option opts fetch-argument block! spec)
 				| 'loose	  (add-option opts [drag-on: 'down])
 				| 'all-over   (set-flag opts 'flags 'all-over)
 				| 'hidden	  (opts/visible?: no)
@@ -268,52 +269,64 @@ system/view/VID: context [
 				] to end
 			]
 			unless match? [
-				either all [word? value find/skip next system/view/evt-names value 2][
-					make-actor opts value spec/2 spec spec: next spec
-				][
-					opt?: switch/default type?/word value: pre-load value [
-						pair!	 [unless opts/size  [opts/size:  value]]
-						string!	 [unless opts/text  [opts/text:  value]]
-						percent! [unless opts/data  [opts/data:  value]]
-						image!	 [unless opts/image [opts/image: value]]
-						tuple!	 [
-							either opts/color [
-								add-flag opts 'font 'color value
-							][
-								opts/color: value
-							]
+				case [
+					all [
+						word? value 
+						any [
+							select css value
+							select system/view/VID/styles value
 						]
-						integer! [
-							unless opts/size [
-								either find [panel group-box] face/type [
-									divides: value
+					][
+						opt?: no
+					]
+					all [word? value find/skip next system/view/evt-names value 2][
+						make-actor opts value spec/2 spec spec: next spec
+					]
+					'else [
+						opt?: switch/default type?/word value: pre-load value [
+							pair!	 [unless opts/size  [opts/size:  value]]
+							string!	 [unless opts/text  [opts/text:  value]]
+							percent! [unless opts/data  [opts/data:  value]]
+							image!	 [unless opts/image [opts/image: value]]
+							tuple!	 [
+								either opts/color [
+									add-flag opts 'font 'color value
 								][
-									opts/size: as-pair value face/size/y
-									opts/size-x: value
+									opts/color: value
 								]
 							]
-						]
-						block!	 [
-							switch/default face/type [
-								panel	  [layout/parent/styles value face divides css]
-								group-box [layout/parent/styles value face divides css]
-								tab-panel [
-									face/pane: make block! (length? value) / 2
-									opts/data: extract value 2
-									max-sz: 0x0
-									foreach p extract next value 2 [
-										layout/parent/styles reduce ['panel copy p] face divides css
-										p: last face/pane
-										max-sz: max max-sz p/offset + p/size
+							integer! [
+								unless opts/size [
+									either find [panel group-box] face/type [
+										divides: value
+									][
+										opts/size: as-pair value face/size/y
+										opts/size-x: value
 									]
-									unless opts/size [opts/size: max-sz]
 								]
-							][make-actor opts style/default-actor value spec]
-							yes
-						]
-						get-word! [make-actor opts style/default-actor value spec]
-						char!	  [yes]
-					][no]
+							]
+							block!	 [
+								switch/default face/type [
+									panel	  [layout/parent/styles value face divides css]
+									group-box [layout/parent/styles value face divides css]
+									tab-panel [
+										face/pane: make block! (length? value) / 2
+										opts/data: extract value 2
+										max-sz: 0x0
+										foreach p extract next value 2 [
+											layout/parent/styles reduce ['panel copy p] face divides css
+											p: last face/pane
+											max-sz: max max-sz p/offset + p/size
+										]
+										unless opts/size [opts/size: max-sz]
+									]
+								][make-actor opts style/default-actor value spec]
+								yes
+							]
+							get-word! [make-actor opts style/default-actor value spec]
+							char!	  [yes]
+						][no]
+					]
 				]
 			]
 			any [not opt? tail? spec]

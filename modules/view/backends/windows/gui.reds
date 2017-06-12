@@ -337,6 +337,20 @@ set-hint-text: func [
 	]
 ]
 
+set-layered-option: func [
+	options		[red-block!]
+	win8+?		[logic!]
+	return:		[integer!]
+	/local
+		layer?	[red-logic!]
+][
+	if TYPE_OF(options) <> TYPE_BLOCK [return 0]
+	layer?: as red-logic! block/select-word options word/load "accelerated" no
+	either all [TYPE_OF(layer?) = TYPE_LOGIC layer?/value][
+		either win8+? [WS_EX_LAYERED][WS_EX_LAYERED or WS_EX_TOOLWINDOW]
+	][0]
+]
+
 set-area-options: func [
 	hWnd		[handle!]
 	options		[red-block!]
@@ -1122,6 +1136,7 @@ OS-make-view: func [
 		selected  [red-integer!]
 		para	  [red-object!]
 		rate	  [red-value!]
+		options	  [red-block!]
 		flags	  [integer!]
 		ws-flags  [integer!]
 		bits	  [integer!]
@@ -1155,6 +1170,7 @@ OS-make-view: func [
 	selected: as red-integer!	values + FACE_OBJ_SELECTED
 	para:	  as red-object!	values + FACE_OBJ_PARA
 	rate:	  					values + FACE_OBJ_RATE
+	options:   as red-block!	values + FACE_OBJ_OPTIONS
 	
 	bits: 	  get-flags as red-block! values + FACE_OBJ_FLAGS
 
@@ -1247,11 +1263,13 @@ OS-make-view: func [
 				as red-tuple! values + FACE_OBJ_COLOR
 				as red-image! values + FACE_OBJ_IMAGE
 			
-			if alpha? [
+			either alpha? [
 				either win8+? [ws-flags: WS_EX_LAYERED][
 					ws-flags: WS_EX_LAYERED or WS_EX_TOOLWINDOW
 					flags: WS_POPUP
 				]
+			][
+				ws-flags: set-layered-option options win8+?
 			]
 		]
 		sym = camera [
@@ -1260,7 +1278,7 @@ OS-make-view: func [
 		sym = window [
 			class: #u16 "RedWindow"
 			flags: WS_BORDER or WS_CLIPCHILDREN
-			ws-flags: WS_EX_COMPOSITED
+			;ws-flags: WS_EX_COMPOSITED
 			if bits and FACET_FLAGS_NO_MIN  = 0 [flags: flags or WS_MINIMIZEBOX]
 			if bits and FACET_FLAGS_NO_MAX  = 0 [flags: flags or WS_MAXIMIZEBOX]
 			if bits and FACET_FLAGS_NO_BTNS = 0 [flags: flags or WS_SYSMENU]
@@ -1331,7 +1349,7 @@ OS-make-view: func [
 	;-- store the face value in the extra space of the window struct
 	assert TYPE_OF(face) = TYPE_OBJECT					;-- detect corruptions caused by CreateWindow unwanted events
 	store-face-to-hWnd handle face
-	parse-common-opts handle as red-block! values + FACE_OBJ_OPTIONS
+	parse-common-opts handle options
 
 	;-- extra initialization
 	case [
@@ -1386,9 +1404,9 @@ OS-make-view: func [
 		][
 			init-drop-list handle data caption selected sym = drop-list
 		]
-		sym = field [set-hint-text handle as red-block! values + FACE_OBJ_OPTIONS]
+		sym = field [set-hint-text handle options]
 		sym = area	 [
-			set-area-options handle as red-block! values + FACE_OBJ_OPTIONS
+			set-area-options handle options
 			change-text handle values sym
 		]
 		sym = window [
@@ -2168,7 +2186,8 @@ OS-to-image: func [
 		rect/top: 0
 		dc: hScreen
 	][
-		hWnd: get-face-handle face
+		hWnd: face-handle? face
+		if null? hWnd [return as red-image! none-value]
 		GetWindowRect hWnd rect
 		width: rect/right - rect/left
 		height: rect/bottom - rect/top
@@ -2192,7 +2211,7 @@ OS-to-image: func [
 	GdipCreateBitmapFromHBITMAP bmp 0 :bitmap
 
 	either zero? bitmap [img: as red-image! none-value][
-		img: image/init-image as red-image! stack/push* bitmap
+		img: image/init-image as red-image! stack/push* as int-ptr! bitmap
 	]
 
     if screen? [DeleteDC mdc]				;-- we delete it in Draw when print window

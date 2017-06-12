@@ -173,7 +173,7 @@ repend: func [
 	value
 	/only "Appends a block value as a block"
 ][
-	head either only [
+	head either any [only not block? series][
 		insert/only tail series reduce :value
 	][
 		reduce/into :value tail series					;-- avoids wasting an intermediary block
@@ -186,6 +186,9 @@ replace: function [
 	value
 	/all
 ][
+	if system/words/all [char? :pattern any-string? series][
+		pattern: form pattern
+	]
 	many?: any [
 		system/words/all [series? :pattern any-string? series]
 		binary? series
@@ -845,7 +848,7 @@ path-thru: function [
 ]
 
 exists-thru?: function [
-	"Return strue if the remote file is present in the local disk cache"
+	"Returns true if the remote file is present in the local disk cache"
 	url [url! file!] "Remote file address"
 ][
 	exists? any [all [file? url url] path-thru url]

@@ -700,14 +700,25 @@ Red/System [
 				grad?	[logic!]
 				rect?   [logic!]
 				state	[integer!]
-				clip-mode    [integer!]
-				m-order [integer!]
+				clip-mode	[integer!]
+				m-order		[integer!]
+				pen-clr		[integer!]
+				brush-clr	[integer!]
+				pen-join	[integer!]
+				pen-cap		[integer!]
 		][
 			cmd:  block/rs-head cmds
 			tail: block/rs-tail cmds
 
 			state: 0
 			clip-mode: replace
+
+			#if OS = 'Windows [
+				pen-clr: DC/pen-color
+				brush-clr: DC/brush-color
+				pen-join: DC/pen-join
+				pen-cap: DC/pen-cap
+			]
 			while [cmd < tail][
 				switch TYPE_OF(cmd) [
 					TYPE_WORD [
@@ -1012,6 +1023,13 @@ Red/System [
 					default [throw-draw-error cmds cmd catch?]
 				]
 				cmd: cmd + 1
+			]
+			#if OS = 'Windows [
+				DC/pen-color: pen-clr
+				DC/brush-color: brush-clr
+				DC/pen-join: pen-join
+				DC/pen-cap: pen-cap
+				update-gdiplus-modes DC
 			]
 		]
 

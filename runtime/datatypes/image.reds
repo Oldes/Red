@@ -44,7 +44,7 @@ image: context [
 		/local
 			pixel [integer!]
 	][
-		pixel: OS-image/get-pixel as-integer img/node offset
+		pixel: OS-image/get-pixel img/node offset
 		tuple/rs-make [
 			pixel and 00FF0000h >> 16
 			pixel and FF00h >> 8
@@ -90,12 +90,12 @@ image: context [
 
 	init-image: func [
 		img		[red-image!]
-		handle  [integer!]
+		handle  [node!]
 		return: [red-image!]
 	][
 		img/head: 0
 		img/size: (OS-image/height? handle) << 16 or OS-image/width? handle
-		img/node: as node! handle
+		img/node: handle
 		img/header: TYPE_IMAGE							;-- implicit reset of all header flags
 		img
 	]
@@ -106,7 +106,7 @@ image: context [
 		height	[integer!]
 		return: [red-image!]
 	][
-		init-image as red-image! stack/push* OS-image/resize img width height
+		init-image as red-image! stack/push* as node! OS-image/resize img width height
 	]
 
 	load-binary: func [
@@ -134,10 +134,10 @@ image: context [
 		return:	[red-image!]
 		/local
 			img   [red-image!]
-			hr    [integer!]
+			hr    [int-ptr!]
 	][
-		hr: OS-image/load-image file/to-OS-path src
-		if hr = -1 [fire [TO_ERROR(access cannot-open) src]]
+		hr: OS-image/load-image src
+		if null? hr [fire [TO_ERROR(access cannot-open) src]]
 		img: as red-image! slot
 		init-image img hr
 		img
@@ -389,6 +389,7 @@ image: context [
 		rgb:   null
 		alpha: null
 		color: null
+		
 		switch TYPE_OF(spec) [
 			TYPE_PAIR [
 				pair: as red-pair! spec
@@ -420,7 +421,7 @@ image: context [
 		y: pair/y
 		if negative? y [y: 0]
 		img/size: y << 16 or x
-		img/node: as node! OS-image/make-image x y rgb alpha color
+		img/node: OS-image/make-image x y rgb alpha color
 		img
 	]
 
@@ -641,7 +642,7 @@ image: context [
 			g: as-integer p/2
 			b: as-integer p/3
 			a: either TUPLE_SIZE?(color) > 3 [255 - as-integer p/4][255]
-			OS-image/set-pixel as-integer img/node offset a << 24 or (r << 16) or (g << 8) or b
+			OS-image/set-pixel img/node offset a << 24 or (r << 16) or (g << 8) or b
 		]
 		ownership/check as red-value! img words/_poke data offset 1
 		as red-value! data
@@ -823,7 +824,7 @@ image: context [
 		state: as red-logic! img
 
 		state/header: TYPE_LOGIC
-		state/value:  IMAGE_WIDTH(img/size) * IMAGE_HEIGHT(img/size) <= img/head 
+		state/value:  IMAGE_WIDTH(img/size) * IMAGE_HEIGHT(img/size) <= (img/head + 1)
 		as red-value! state
 	]
 

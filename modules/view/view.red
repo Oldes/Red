@@ -592,7 +592,7 @@ system/view: context [
 		]
 	]
 	
-	awake: function [event [event!] /with face result][	;@@ temporary until event:// is implemented
+	awake: function [event [event!] /with face /local result][	;@@ temporary until event:// is implemented
 		unless face [unless face: event/face [exit]]	;-- filter out unbound events
 		
 		unless with [									;-- protect following code from recursion
@@ -635,7 +635,7 @@ do-events: function [
 	/local result
 ][
 	win: last system/view/screens/1/pane
-	win/state/4: not no-wait							;-- mark the window from which the event loop starts
+	unless win/state/4 [win/state/4: not no-wait]		;-- mark the window from which the event loop starts
 	set/any 'result system/view/platform/do-event-loop no-wait
 	:result
 ]
@@ -738,17 +738,15 @@ show: function [
 			]
 		]
 		face/state: reduce [obj 0 none false]
-		if all [object? face/actors in face/actors 'on-created][
-			do-safe [face/actors/on-created face none]	;@@ only called once
-		]
 	]
 
 	if face/pane [
 		foreach f face/pane [show/with f face]
 		system/view/platform/refresh-window face/state/1
 	]
-	;check-all-reactions face
-	
+	if all [new? object? face/actors in face/actors 'on-created][
+		do-safe [face/actors/on-created face none]		;@@ only called once
+	]
 	if all [new? face/type = 'window face/visible?][
 		system/view/platform/show-window obj
 	]
@@ -1026,8 +1024,11 @@ insert-event-func [
 	all [
 		event/type = 'key
 		find "^M^/" event/key
-		find [field drop-down] event/face/type
-		event/type: 'enter
+		switch event/face/type [ 
+			field 
+			drop-down [event/type: 'enter]
+			button	  [event/type: 'click]
+		]
 	]
 	event
 ]

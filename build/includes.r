@@ -191,6 +191,13 @@ write %build/bin/sources.r set-cache [
 					%tab-panel.reds
 					%text-box.reds
 				]
+				%test/ [
+					%draw.reds
+					%events.reds
+					%gui.reds
+					%gui.red
+					%text-box.reds
+				]
 			]
 		]
 	]

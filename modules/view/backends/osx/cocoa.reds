@@ -166,6 +166,8 @@ Red/System [
 #define RedFieldEditorKey		4000FFFBh
 #define RedAllOverFlagKey		4000FFFCh
 #define RedAttachedWidgetKey	4000FFFDh
+#define RedCursorKey			4000FFFEh
+#define RedEnableKey			4000FFFFh
 
 
 objc_super!: alias struct! [
@@ -316,6 +318,7 @@ tagSIZE: alias struct! [
 		objc_msgSend_f32: "objc_msgSend_fpret" [[variadic] return: [float32!]]
 		objc_msgSend_fpret: "objc_msgSend_fpret" [[variadic] return: [float!]]
 		objc_msgSend_stret: "objc_msgSend_stret" [[custom]]
+		objc_msgSend_rect: "objc_msgSend_stret" [[variadic] return: [NSRect! value]]
 		_Block_object_assign: "_Block_object_assign" [
 			destAddr	[integer!]
 			obj			[integer!]
@@ -758,7 +761,16 @@ tagSIZE: alias struct! [
 		CGPathRelease: "CGPathRelease" [
 			path		[integer!]
 		]
+		CGPathCloseSubpath: "CGPathCloseSubpath" [
+			path		[integer!]
+		]
 		CGPathMoveToPoint: "CGPathMoveToPoint" [
+			path		[integer!]
+			m			[CGAffineTransform!]
+			x			[float32!]
+			y			[float32!]
+		]
+		CGPathAddLineToPoint: "CGPathAddLineToPoint" [
 			path		[integer!]
 			m			[CGAffineTransform!]
 			x			[float32!]
@@ -772,6 +784,24 @@ tagSIZE: alias struct! [
 			radius		[float32!]
 			startAngle	[float32!]
 			delta		[float32!]
+		]
+		CGPathAddCurveToPoint: "CGPathAddCurveToPoint" [
+			path		[integer!]
+			m			[CGAffineTransform!]
+			cp1x		[float32!]
+			cp1y		[float32!]
+			cp2x		[float32!]
+			cp2y		[float32!]
+			x			[float32!]
+			y			[float32!]
+		]
+		CGPathAddQuadCurveToPoint: "CGPathAddQuadCurveToPoint" [
+			path		[integer!]
+			m			[CGAffineTransform!]
+			cp1x		[float32!]
+			cp1y		[float32!]
+			x			[float32!]
+			y			[float32!]
 		]
 		CGContextDrawImage: "CGContextDrawImage" [
 			ctx			[handle!]
@@ -820,9 +850,8 @@ get-super-obj: func [
 	id		[integer!]
 	return: [objc_super!]
 	/local
-		super [objc_super!]
+		super [objc_super! value]
 ][
-	super: declare objc_super!
 	super/receiver: id
 	super/superclass: objc_msgSend [id sel_getUid "superclass"]
 	super
@@ -833,9 +862,8 @@ msg-send-super-logic: func [
 	sel		[integer!]
 	return: [logic!]
 	/local
-		super [objc_super!]
+		super [objc_super! value]
 ][
-	super: declare objc_super!
 	super/receiver: id
 	super/superclass: objc_msgSend [id sel_getUid "superclass"]
 	as logic! objc_msgSendSuper [super sel]
@@ -847,9 +875,8 @@ msg-send-super: func [
 	arg		[integer!]
 	return: [integer!]
 	/local
-		super [objc_super!]
+		super [objc_super! value]
 ][
-	super: declare objc_super!
 	super/receiver: id
 	super/superclass: objc_msgSend [id sel_getUid "superclass"]
 	objc_msgSendSuper [super sel arg]

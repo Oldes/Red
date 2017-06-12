@@ -69,6 +69,7 @@ system-dialect: make-profilable context [
 		libRed?: 			no
 		libRedRT?: 			no
 		libRedRT-update?:	no
+		GUI-engine:			'native						;-- native | test | GTK | ...
 		modules:			none
 		show:				none
 		command-line:		none
@@ -1630,7 +1631,10 @@ system-dialect: make-profilable context [
 							pos: set id   string!
 							pos: set spec block!    (
 								clear-docstrings spec
-								either all [1 = length? spec not block? spec/1][
+								either any [
+									all [1 = length? spec not block? spec/1]
+									all [2 = length? spec find [pointer! struct!] spec/1 block? spec/2]
+								][
 									unless parse spec type-spec [throw-error err]
 									either ns-path [
 										add-ns-symbol specs/1
@@ -3230,8 +3234,12 @@ system-dialect: make-profilable context [
 					all [set-path? variable not path? expr]	;-- value loaded at lower level
 					tag? unbox expr
 				][
-					emitter/target/emit-load expr		;-- emit code for single value
-					either all [boxed not decimal? unbox expr][
+					either boxed [
+						emitter/target/emit-load/with expr boxed ;-- emit code for single value
+					][
+						emitter/target/emit-load expr	;-- emit code for single value
+					]
+					either all [boxed not decimal? unbox expr not decimal? boxed/data][
 						emitter/target/emit-casting boxed no	;-- insert runtime type casting if required
 						boxed/type
 					][

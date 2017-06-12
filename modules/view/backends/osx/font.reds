@@ -33,6 +33,7 @@ make-font: func [
 		method	[c-string!]
 		hFont	[handle!]
 		temp	[CGPoint!]
+		sys?	[logic!]
 ][
 	temp: declare CGPoint!
 	values: object/get-values font
@@ -76,11 +77,17 @@ make-font: func [
 	temp/x: size
 	str: as red-string! values + FONT_OBJ_NAME
 	hFont: null
-	if TYPE_OF(str) = TYPE_STRING [
+	sys?: no
+	either TYPE_OF(str) = TYPE_STRING [
 		len: -1
 		name: unicode/to-utf8 str :len
 		sym: CFString(name)
-		manager: objc_msgSend [objc_getClass "NSFontManager" sel_getUid "sharedFontManager"]
+	][
+		sys?: yes
+		sym: objc_msgSend [default-font sel_getUid "familyName"]
+	]
+	manager: objc_msgSend [objc_getClass "NSFontManager" sel_getUid "sharedFontManager"]
+	until [
 		hFont: as handle! objc_msgSend [
 			manager
 			sel_getUid "fontWithFamily:traits:weight:size:"
@@ -89,15 +96,14 @@ make-font: func [
 			5									;-- ignored if use traits
 			temp/x
 		]
-		CFRelease sym
-	]
-	if null? hFont [							;-- use system font
-		method: either traits and NSBoldFontMask <> 0 [
-			"boldSystemFontOfSize:"
-		][
-			"systemFontOfSize:"
+		unless sys? [CFRelease sym]
+		if null? hFont [
+			either sys? [sym: CFString("Helvetica") sys?: no][
+				sym: objc_msgSend [default-font sel_getUid "familyName"]
+				sys?: yes
+			]
 		]
-		hFont: as handle! objc_msgSend [objc_getClass "NSFont" sel_getUid method temp/x]
+		hFont <> null
 	]
 
 	blk: as red-block! values + FONT_OBJ_STATE
