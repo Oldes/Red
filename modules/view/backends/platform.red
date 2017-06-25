@@ -524,7 +524,7 @@ system/view/platform: context [
 					;#include %android/gui.reds
 					#switch OS [
 						Windows  [#include %windows/gui.reds]
-						MacOSX   [#include %osx/gui.reds]
+						macOS    [#include %macOS/gui.reds]
 						#default []					;-- Linux
 					]
 				]
@@ -698,33 +698,40 @@ system/view/platform: context [
 
 		extend system/view/metrics/margins [#switch config/OS [
 			Windows [
-				button:		[1x1   1x1]					;-- LeftxRight TopxBottom
-				tab-panel:	[0x2   0x1]
-				text-list:	[0x0   0x15]
-				group-box:	[0x0   0x1]
+				button:			[1x1   1x1]				;-- LeftxRight TopxBottom
+				tab-panel:		[0x2   0x1]
+				text-list:		[0x0   0x15]
+				group-box:		[0x0   0x1]
 			]
-			MacOSX [
-				button:		[6x6   2x3]
-				group-box:	[3x3   0x4]
-				tab-panel:	[7x7   6x10]
-				drop-down:	[0x3   3x0]
-				drop-list:	[0x3   3x0]
+			macOS [
+				button:			[2x2   2x3]
+				button-regular:	[6x6   4x7]
+				button-small:	[5x5   4x6]
+				button-mini:	[1x1   0x1]
+				group-box:		[3x3   0x4]
+				tab-panel:		[7x7   6x10]
+				drop-down:		[0x3   3x0]
+				drop-list:		[0x3   3x0]
 			]
 		]]
 		extend system/view/metrics/paddings [#switch config/OS [
 			Windows [
-				check:		[16x0  0x0]					;-- 13 + 3 for text padding
-				radio:		[16x0  0x0]					;-- 13 + 3 for text padding
-				group-box:	[3x3  15x4]
-				tab-panel:	[1x3  25x0]
-				button:		[8x8   0x0]
+				check:			[16x0  0x0]				;-- 13 + 3 for text padding
+				radio:			[16x0  0x0]				;-- 13 + 3 for text padding
+				group-box:		[3x3  10x3]
+				tab-panel:		[1x3  25x0]
+				button:			[8x8   0x0]
 			]
-			MacOSX [
-				button:		[7x7   0x0]
-				check:		[20x0  3x1]
-				radio:		[20x0  1x1]
-				text:		[3x3   0x0]
-				field:		[3x3   0x0]
+			macOS [
+				button:			[11x11 0x0]
+				button-regular:	[14x14 0x0]
+				button-small:	[11x11 0x0]
+				button-mini:	[11x11 0x0]
+				check:			[20x0  3x1]
+				radio:			[20x0  1x1]
+				text:			[3x3   0x0]
+				field:			[3x3   0x0]
+				group-box:		[0x8  4x18]
 			]
 		]]
 		
@@ -735,7 +742,7 @@ system/view/platform: context [
 				;colors/window							;-- set in gui/init from OS metrics
 				;colors/panel							;-- set in gui/init from OS metrics
 			]
-			MacOSX [
+			macOS [
 			
 			]
 		]

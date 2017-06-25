@@ -10,8 +10,9 @@ Red [
 	}
 ]
 
-ok-captions: ["ok" "save" "apply"]
-no-capital:  ["a " | "an " | "the " | "and " | "or "]
+cancel-captions: ["cancel" "delete" "remove"]
+ok-captions: 	 ["ok" "save" "apply"]
+no-capital:  	 ["a " | "an " | "the " | "and " | "or "]
 
 title-ize: function [text [string!] return: [string!]][
 	parse text [
@@ -58,6 +59,29 @@ capitalize: function [
 	]
 ]
 
+adjust-buttons: function [
+	"Use standard button classes when buttons are narrow enough"
+	root [object!]
+][
+	foreach-face/with root [
+		y: face/size/y - 5									;-- remove default button's margins
+		face/options: compose [height: (
+			case [
+				y <= 15 [face/size/y: 16 + 1  'mini]		;-- 16, margins: 0x1
+				y <= 19 [face/size/y: 28 + 10 'small]		;-- 28, margins: 4x6
+				y <= 37	[face/size/y: 32 + 13 'regular]		;-- 32, margins: 6x7
+			]
+		)]
+	][
+		all [
+			face/type = 'button
+			face/size
+			face/size/y <= 32								;-- average [29 45] - 5
+			not empty? face/text
+		]
+	]
+]
+
 Cancel-OK: function [
 	"Put OK buttons last"
 	root [object!]
@@ -79,6 +103,7 @@ Cancel-OK: function [
 				all [
 					f <> face
 					f/type = 'button
+					find cancel-captions f/text
 					5 > absolute f/offset/y - pos-y
 					pos-x < f/offset/x
 					pos-x: f/offset/x
