@@ -602,6 +602,7 @@ process-command-event: func [
 	/local
 		type   [red-word!]
 		values [red-value!]
+		int	   [red-integer!]
 		idx	   [integer!]
 		res	   [integer!]
 		saved  [handle!]
@@ -638,7 +639,7 @@ process-command-event: func [
 					type: as red-word! get-facet current-msg FACE_OBJ_TYPE
 					if type/symbol = area [
 						extend-area-limit child 16
-						update-scrollbars child
+						update-scrollbars child null
 					]
 				]
 			]
@@ -662,11 +663,21 @@ process-command-event: func [
 		]
 		CBN_SELCHANGE [
 			current-msg/hWnd: child			;-- force ListBox or Combobox handle
-			type: as red-word! get-facet current-msg FACE_OBJ_TYPE
+			values: get-face-values child
+
+			type: as red-word! values + FACE_OBJ_TYPE
 			res: either type/symbol = text-list [LB_GETCURSEL][CB_GETCURSEL]
 			idx: as-integer SendMessage child res 0 0
+
+			int: as red-integer! values + FACE_OBJ_SELECTED
+			if all [
+				TYPE_OF(int) = TYPE_INTEGER
+				idx + 1 = int/value
+			][exit]							;-- do not send event if select the same item
 			res: make-event current-msg idx EVT_SELECT
-			get-selected current-msg idx + 1
+			int/header: TYPE_INTEGER
+			int/value: idx + 1
+
 			if res = EVT_DISPATCH [
 				make-event current-msg 0 EVT_CHANGE
 			]
@@ -698,9 +709,13 @@ paint-background: func [
 		color  [integer!]
 ][
 	color: to-bgr as node! GetWindowLong hWnd wc-offset + 4 FACE_OBJ_COLOR
-	if color = -1 [return false]
-
-	hBrush: CreateSolidBrush color
+	either color = -1 [
+		either (GetWindowLong hWnd GWL_STYLE) and WS_CHILD = 0 [
+			hBrush: GetSysColorBrush COLOR_3DFACE
+		][return false]
+	][
+		hBrush: CreateSolidBrush color
+	]
 	GetClientRect hWnd rect
 	FillRect hDC rect hBrush
 	DeleteObject hBrush
@@ -758,7 +773,9 @@ process-custom-draw: func [
 				][
 					rc/left: rc/left + 16
 				]
-				DrawText DC unicode/to-utf16 txt -1 rc flags
+				if TYPE_OF(txt) = TYPE_STRING [
+					DrawText DC unicode/to-utf16 txt -1 rc flags
+				]
 				SetBkMode DC old
 				return CDRF_SKIPDEFAULT
 			]
@@ -834,20 +851,6 @@ delta-size: func [
 	pt
 ]
 
-update-pair-facet: func [
-	hWnd   [handle!]
-	type   [integer!]
-	lParam [integer!]
-	/local
-		pair [red-pair!]
-][
-	current-msg/hWnd: hWnd
-	pair: as red-pair! get-facet current-msg type
-	pair/header: TYPE_PAIR								;-- forces pair! in case user changed it
-	pair/x: WIN32_LOWORD(lParam)
-	pair/y: WIN32_HIWORD(lParam)
-]
-
 set-window-info: func [
 	hWnd	[handle!]
 	lParam	[integer!]
@@ -879,12 +882,6 @@ set-window-info: func [
 		if pair/y > info/ptMaxSize.y [info/ptMaxSize.y: cy ret?: yes]
 		if pair/x > info/ptMaxTrackSize.x [info/ptMaxTrackSize.x: cx ret?: yes]
 		if pair/y > info/ptMaxTrackSize.y [info/ptMaxTrackSize.y: cy ret?: yes]
-		if pair/x < info/ptMinTrackSize.x [info/ptMinTrackSize.x: cx ret?: yes]
-		if pair/y < info/ptMinTrackSize.y [info/ptMinTrackSize.y: cy ret?: yes]
-
-		pair: as red-pair! values + FACE_OBJ_OFFSET
-		if pair/x < info/ptMaxPosition.x [info/ptMaxPosition.x: pair/x + x ret?: yes]
-		if pair/y < info/ptMaxPosition.y [info/ptMaxPosition.y: pair/y + y ret?: yes]
 	]
 	ret?
 ]
@@ -973,9 +970,15 @@ WndProc: func [
 						][miniz?: yes]
 						FACE_OBJ_OFFSET
 					][FACE_OBJ_SIZE]
-					update-pair-facet hWnd type lParam
 					if miniz? [return 0]
+
+					offset: as red-pair! values + type
+					offset/header: TYPE_PAIR
+					offset/x: WIN32_LOWORD(lParam)
+					offset/y: WIN32_HIWORD(lParam)
+
 					modal-loop-type: either msg = WM_MOVE [EVT_MOVING][EVT_SIZING]
+					current-msg/hWnd: hWnd
 					current-msg/lParam: lParam
 					make-event current-msg 0 modal-loop-type
 
@@ -1156,6 +1159,8 @@ WndProc: func [
 			]
 			return 0
 		]
+		WM_LBUTTONDOWN	 [SetCapture hWnd return 0]
+		WM_LBUTTONUP	 [ReleaseCapture return 0]
 		WM_GETMINMAXINFO [								;@@ send before WM_NCCREATE
 			if all [type = window set-window-info hWnd lParam][return 0]
 		]

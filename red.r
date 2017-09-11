@@ -570,7 +570,6 @@ redc: context [
 				"...output file      :" to-local-file result/4 lf
 			]
 		]
-		unless Windows? [print ""]						;-- extra LF for more readable output
 	]
 	
 	do-clear: func [args [block!] /local path file][
@@ -850,7 +849,16 @@ redc: context [
 			opts/libRedRT-update?: no
 		]
 		
-		if result: compile src opts [show-stats result]
+		if result: compile src opts [
+			show-stats result
+			if all [word: in opts 'packager get word][
+				file: join %system/formats/ [opts/packager %.r]
+				unless exists?-cache file [fail ["Packager:" opts/packager "not found!"]]
+				do bind load-cache file 'self
+				packager/process opts src result/4
+			]
+			unless Windows? [print ""]					;-- extra LF for more readable output
+		]
 	]
 
 	set 'rc func [cmd [file! string! block!]][

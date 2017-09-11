@@ -66,16 +66,6 @@ Red/System [
 	UCS-4:		 4
 ]
 
-;=== Simple I/O definitions ===
-
-#enum http-verb! [
-	HTTP_GET
-	HTTP_PUT
-	HTTP_POST
-	HTTP_DEL
-	HTTP_HEAD
-]
-
 ;== Image definitions ===
 
 #enum extract-type! [
@@ -113,12 +103,7 @@ Red/System [
 		grad-x2			[float32!]
 		grad-y2			[float32!]
 		grad-radius		[float32!]
-		grad-angle		[float32!]
-		grad-sx			[float32!]
-		grad-sy			[float32!]
 		grad-pos?		[logic!]
-		grad-rotate?	[logic!]
-		grad-scale?		[logic!]
 		grad-pen?		[logic!]
 		grad-brush?		[logic!]
 		pen?			[logic!]

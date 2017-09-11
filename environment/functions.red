@@ -34,7 +34,7 @@ attempt: func [
 	]
 ]
 
-comment: func [value][]
+comment: func ['value][]
 
 quit: func [
 	"Stops evaluation and exits the program"
@@ -91,7 +91,7 @@ last:	func ["Returns the last value in a series"  s [series!]][pick back tail s 
 		bitset! binary! block! char! email! file! float! get-path! get-word! hash!
 		integer! issue! lit-path! lit-word! logic! map! none! pair! paren! path!
 		percent! refinement! set-path! set-word! string! tag! time! typeset! tuple!
-		unset! url! word! image!
+		unset! url! word! image! date!
 	]
 	test-list: union to-list [
 		handle! error! action! native! datatype! function! image! object! op! routine! vector!
@@ -181,11 +181,26 @@ repend: func [
 ]
 
 replace: function [
-	series [series!]
-	pattern
-	value
-	/all
+	"Replaces values in a series, in place"
+	series [series!] "The series to be modified"
+	pattern "Specific value or parse rule pattern to match"
+	value "New value, replaces pattern in the series"
+	/all  "Replace all occurrences, not just the first"
+	/deep "Replace pattern in all sub-lists as well"
 ][
+	if system/words/all [deep any-list? series][
+		pattern: to block! either word? p: pattern [to lit-word! pattern][pattern]
+		parse series rule: [
+			some [
+				s: pattern e: (
+					s: change/part s value e
+					unless all [return series]
+				) :s
+				| ahead any-list! into rule | skip
+			]
+		]
+		return series
+	]
 	if system/words/all [char? :pattern any-string? series][
 		pattern: form pattern
 	]
@@ -462,13 +477,14 @@ cause-error: function [
 ]
 
 pad: func [
-	"Pad a string on right side with spaces"
-	str		[string!]		"String to pad"
+	"Pad a FORMed value on right side with spaces"
+	str						"Value to pad, FORM it if not a string"
 	n		[integer!]		"Total size (in characters) of the new string"
 	/left					"Pad the string on left side"
 	/with c	[char!]			"Pad with char"
 	return:	[string!]		"Modified input string at head"
 ][
+	unless string? str [str: form str]
 	head insert/dup
 		any [all [left str] tail str]
 		any [c #" "]
@@ -488,7 +504,7 @@ mod: func [
 ]
 
 modulo: func [
-	"{Wrapper for MOD that handles errors like REMAINDER. Negligible values (compared to A and B) are rounded to zero"
+	"Wrapper for MOD that handles errors like REMAINDER. Negligible values (compared to A and B) are rounded to zero"
 	a		[number! char! pair! tuple! vector! time!]
 	b		[number! char! pair! tuple! vector! time!]
 	return: [number! char! pair! tuple! vector! time!]

@@ -18,9 +18,9 @@ string: context [
 	#define MAX_URL_CHARS 		7Fh
 
 	#enum modification-type! [
-		TYPE_APPEND
-		TYPE_INSERT
-		TYPE_OVERWRITE
+		MODE_APPEND
+		MODE_INSERT
+		MODE_OVERWRITE
 	]
 
 	#enum escape-type! [
@@ -865,12 +865,12 @@ string: context [
 	]
 
 	alter: func [
-		str1		[red-string!]						;-- string! to modify
-		str2		[red-string!]						;-- string! to modify to str1
-		part		[integer!]							;-- str2 characters to overwrite, -1 means all
-		offset		[integer!]							;-- offset from head in codepoints
-		keep?		[logic!]							;-- do not change str2 encoding
-		type		[integer!]							;-- type of modification: append,insert and overwrite
+		str1	[red-string!]							;-- string! to modify
+		str2	[red-string!]							;-- string! to modify to str1
+		part	[integer!]								;-- str2 characters to overwrite, -1 means all
+		offset	[integer!]								;-- offset from head in codepoints
+		keep?	[logic!]								;-- do not change str2 encoding
+		mode	[integer!]								;-- type of modification: append, insert or overwrite
 		/local
 			s1	  [series!]
 			s2	  [series!]
@@ -931,11 +931,12 @@ string: context [
 		size2: (as-integer s2/tail - s2/offset) - h2 >> (log-b unit2)
 		if all [part >= 0 part < size2][size2: part]
 		size: unit1 * size2
+		if size <= 0 [exit]
 
 		size1: (as-integer s1/tail - s1/offset) + size
 		if s1/size < size1 [s1: expand-series s1 size1 * 2]
 
-		if type = TYPE_INSERT [
+		if mode = MODE_INSERT [
 			move-memory									;-- make space
 				(as byte-ptr! s1/offset) + h1 + offset + size
 				(as byte-ptr! s1/offset) + h1 + offset
@@ -943,7 +944,7 @@ string: context [
 		]
 
 		tail: as byte-ptr! s1/tail
-		p: either type = TYPE_APPEND [
+		p: either mode = MODE_APPEND [
 			tail
 		][
 			(as byte-ptr! s1/offset) + (offset << (log-b unit1)) + h1
@@ -957,7 +958,7 @@ string: context [
 					UCS-2  [cp: (as-integer p2/2) << 8 + p2/1]
 					UCS-4  [p4: as int-ptr! p2 cp: p4/1]
 				]
-				s1: either type = TYPE_APPEND [
+				s1: either mode = MODE_APPEND [
 					append-char s1 cp
 				][
 					poke-char s1 p cp
@@ -969,8 +970,8 @@ string: context [
 			copy-memory	p (as byte-ptr! s2/offset) + h2 size
 			p: p + size
 		]
-		if type = TYPE_INSERT [p: tail + size] 
-		if all [type = TYPE_OVERWRITE p < tail][p: tail]
+		if mode = MODE_INSERT [p: tail + size] 
+		if all [mode = MODE_OVERWRITE p < tail][p: tail]
 		s1/tail: as cell! p
 	]
 
@@ -981,7 +982,7 @@ string: context [
 		offset	  [integer!]							;-- offset from head in codepoints
 		keep?	  [logic!]								;-- do not change str2 encoding
 	][
-		alter str1 str2 part offset keep? TYPE_OVERWRITE
+		alter str1 str2 part offset keep? MODE_OVERWRITE
 	]
 	
 	concatenate: func [									;-- append str2 to str1
@@ -1099,7 +1100,86 @@ string: context [
 
 		as red-string! copy-cell as red-value! str stack/push*
 	]
-	
+
+	compare-call: func [								;-- Wrap red function!
+		value1   [byte-ptr!]
+		value2   [byte-ptr!]
+		fun		 [integer!]
+		flags	 [integer!]
+		return:  [integer!]
+		/local
+			res  [red-value!]
+			bool [red-logic!]
+			int  [red-integer!]
+			d    [red-float!]
+			all? [logic!]
+			num  [integer!]
+			str1 [red-string!]
+			str2 [red-string!]
+			v1	 [red-value!]
+			v2	 [red-value!]
+			s1   [series!]
+			s2   [series!]
+			unit [integer!]
+			c1	 [integer!]
+			c2	 [integer!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "string/compare-call"]]
+
+		stack/mark-func words/_body						;@@ find something more adequate
+
+		unit: flags >>> 2 and 7
+		c1: get-char value1 unit
+		c2: get-char value2 unit
+
+		either flags and sort-reverse-mask = 0 [
+			v2: as red-value! char/push c2
+			v1: as red-value! char/push c1
+		][
+			v1: as red-value! char/push c1
+			v2: as red-value! char/push c2
+		]
+
+		all?: flags and sort-all-mask = sort-all-mask
+		num: flags >>> 5
+		if all [all? num > 0][
+			str1: make-at v1 1 unit
+			str2: make-at v2 1 unit
+			s1: GET_BUFFER(str1)
+			s2: GET_BUFFER(str2)
+			s1/offset: as red-value! value1
+			s2/offset: as red-value! value2
+			s1/tail: as red-value! (value1 + (num << (log-b unit)))
+			s2/tail: as red-value! (value2 + (num << (log-b unit)))
+		]
+
+		_function/call as red-function! fun global-ctx	;FIXME: hardcoded origin context
+		stack/unwind
+		stack/pop 1
+
+		res: stack/top
+		switch TYPE_OF(res) [
+			TYPE_LOGIC [
+				bool: as red-logic! res
+				either bool/value [1][-1]
+			]
+			TYPE_INTEGER [
+				int: as red-integer! res
+				0 - int/value
+			]
+			TYPE_FLOAT [
+				d: as red-float! res
+				case [
+					d/value > 0.0 [-1]
+					d/value < 0.0 [1]
+					true [0]
+				]
+			]
+			TYPE_NONE [-1]
+			default [1]
+		]
+	]
+
 	;-- Actions -- 
 	
 	make: func [
@@ -1887,7 +1967,7 @@ string: context [
 		str			[red-string!]
 		case?		[logic!]
 		skip		[red-integer!]
-		compare		[red-function!]
+		comparator	[red-function!]
 		part		[red-value!]
 		all?		[logic!]
 		reverse?	[logic!]
@@ -1907,6 +1987,7 @@ string: context [
 			op		[integer!]
 			flags	[integer!]
 			mult	[integer!]
+			offset	[integer!]
 	][
 		step: 1
 		s: GET_BUFFER(str)
@@ -1954,7 +2035,6 @@ string: context [
 			if step > 1 [len: len / step]
 		]
 
-		if unit = 6 [unit: 8]
 		cmp: either all [
 			TYPE_OF(str) = TYPE_VECTOR
 			(as-integer str/cache) = TYPE_FLOAT					;-- vec/type
@@ -1976,6 +2056,34 @@ string: context [
 			either case? [COMP_STRICT_EQUAL][COMP_EQUAL]
 		]
 		flags: either reverse? [SORT_REVERSE][SORT_NORMAL]
+
+		if OPTION?(comparator) [
+			switch TYPE_OF(comparator) [
+				TYPE_FUNCTION [
+					flags: unit << 2 or flags
+					if all [all? OPTION?(skip)] [
+						flags: flags or sort-all-mask
+						flags: step << 5 or flags
+					]
+					cmp: as-integer :compare-call
+					op: as-integer comparator
+				]
+				TYPE_INTEGER [
+					int: as red-integer! comparator
+					offset: int/value
+					if any [offset < 1 offset > step][
+						fire [
+							TO_ERROR(script out-of-range)
+							comparator
+						]
+					]
+					flags: offset - 1 << 1 or flags
+				]
+				default [
+					ERR_INVALID_REFINEMENT_ARG((refinement/load "compare") comparator)
+				]
+			]
+		]
 		_sort/qsort buffer len unit * step op flags cmp
 		ownership/check as red-value! str words/_sort null str/head 0
 		str

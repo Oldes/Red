@@ -277,13 +277,17 @@ image: context [
 				]
 			]
 		][
-			either type = TYPE_TUPLE [
-				tp: as red-tuple! bin
-				color: tp/array1
-				if TUPLE_SIZE?(tp) = 3 [color: color and 00FFFFFFh]
-			][
-				int: as red-integer! bin
-				color: int/value
+			switch type [
+				TYPE_TUPLE [
+					tp: as red-tuple! bin
+					color: tp/array1
+					if TUPLE_SIZE?(tp) = 3 [color: color and 00FFFFFFh]
+				]
+				TYPE_INTEGER [
+					int: as red-integer! bin
+					color: int/value
+				]
+				default [fire [TO_ERROR(script invalid-arg) bin]]
 			]
 			either method = EXTRACT_ARGB [
 				mask: 255 - (color >>> 24) << 24
@@ -433,21 +437,21 @@ image: context [
 		/local
 			ret [red-logic!]
 	][
-		if TYPE_OF(spec) = TYPE_IMAGE [					;-- copy it
-			return copy as red-image! spec proto null yes null
-		]
-		#either modules contains 'View [
-			spec: stack/push spec						;-- store spec to avoid corrution (#2460)
-			#call [face? spec]
-			ret: as red-logic! stack/arguments
-			either ret/value [
-				return exec/gui/OS-to-image as red-object! spec
-			][
-				fire [TO_ERROR(script bad-to-arg) datatype/push TYPE_IMAGE spec]
+		switch TYPE_OF(spec) [
+			TYPE_IMAGE [					;-- copy it
+				return copy as red-image! spec proto null yes null
 			]
-		][
-			fire [TO_ERROR(script bad-to-arg) datatype/push TYPE_IMAGE spec]
+			TYPE_OBJECT [
+				#either modules contains 'View [
+					spec: stack/push spec						;-- store spec to avoid corrution (#2460)
+					#call [face? spec]
+					ret: as red-logic! stack/arguments
+					if ret/value [return exec/gui/OS-to-image as red-object! spec]
+				][0]
+			]
+			default [0]
 		]
+		fire [TO_ERROR(script bad-to-arg) datatype/push TYPE_IMAGE spec]
 		as red-image! proto
 	]
 
@@ -459,7 +463,7 @@ image: context [
 		flat?	[logic!]
 		arg		[red-value!]
 		part	[integer!]
-		mold?	[logic!]
+		indent	[integer!]
 		return: [integer!]
 		/local
 			height	[integer!]
@@ -508,7 +512,7 @@ image: context [
 		part: part - 2	
 		if size > 30 [
 			string/append-char GET_BUFFER(buffer) as-integer lf
-			part: part - 1
+			part: object/do-indent buffer indent part - 1
 		]
 		
 		count: 0
@@ -518,7 +522,10 @@ image: context [
 			string/concatenate-literal buffer string/byte-to-hex pixel and FF00h >> 8
 			string/concatenate-literal buffer string/byte-to-hex pixel and FFh
 			count: count + 1
-			if count % 10 = 0 [string/append-char GET_BUFFER(buffer) as-integer lf]
+			if count % 10 = 0 [
+				string/append-char GET_BUFFER(buffer) as-integer lf
+				part: object/do-indent buffer indent part - 1
+			]
 			part: part - 6
 			if all [OPTION?(arg) part <= 0][
 				OS-image/unlock-bitmap img bitmap
@@ -529,7 +536,7 @@ image: context [
 		]
 		if all [size > 30 count % 10 <> 0] [
 			string/append-char GET_BUFFER(buffer) as-integer lf
-			part: part - 1
+			part: object/do-indent buffer indent part - 1
 		]
 		string/append-char GET_BUFFER(buffer) as-integer #"}"
 
@@ -567,7 +574,7 @@ image: context [
 	][
 		#if debug? = yes [if verbose > 0 [print-line "image/form"]]
 
-		serialize img buffer no no no arg part no
+		serialize img buffer no no no arg part 0
 	]
 
 	mold: func [
@@ -583,7 +590,7 @@ image: context [
 	][
 		#if debug? = yes [if verbose > 0 [print-line "image/mold"]]
 
-		serialize img buffer only? all? flat? arg part yes
+		serialize img buffer only? all? flat? arg part indent + 1
 	]
 
 	length?: func [
@@ -677,6 +684,7 @@ image: context [
 				sym: symbol/resolve w/symbol
 				case [
 					sym = words/size [
+						if set? [fire [TO_ERROR(script invalid-path) path element]]
 						pair/push IMAGE_WIDTH(parent/size) IMAGE_HEIGHT(parent/size)
 					]
 					sym = words/argb [
@@ -701,13 +709,13 @@ image: context [
 						]
 					]
 					true [
-						fire [TO_ERROR(script invalid-path) stack/arguments element]
+						fire [TO_ERROR(script invalid-path) path element]
 						null
 					]
 				]
 			]
 			default [
-				fire [TO_ERROR(script invalid-path) stack/arguments element]
+				fire [TO_ERROR(script invalid-path) path element]
 				null
 			]
 		]

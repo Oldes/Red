@@ -745,7 +745,11 @@ system-dialect: make-profilable context [
 						struct!  [reduce pick [[value/2][value/1 value/2]] word? value/2]
 						pointer! [reduce [value/1 value/2]]
 					][
-						next next reduce ['array! length? value	'pointer! get-type value/1]	;-- hide array size
+						all [
+							find [float! float64! c-string!] first type: get-type value/1
+							type: [integer!]
+						]
+						next next reduce ['array! length? value 'pointer! type]	;-- hide array size
 					]
 				]
 				none!	 [none-type]					;-- no type case (func with no return value)
@@ -1057,7 +1061,7 @@ system-dialect: make-profilable context [
 		
 		add-symbol: func [name [word!] value type][
 			unless type [type: get-type value]
-			unless 'array! = first head type [type: copy type]
+			if 'array! <> first head type [type: copy type]
 			append globals reduce [name type]
 			type
 		]
@@ -1565,7 +1569,7 @@ system-dialect: make-profilable context [
 		]
 		
 		process-export: has [defs cc ns entry spec list name sym][
-			if job/type = 'exe [
+			if all [job/type = 'exe job/OS <> 'FreeBSD][
 				throw-error "#export directive requires a library compilation mode"
 			]
 			if word? pc/2 [
@@ -2082,14 +2086,15 @@ system-dialect: make-profilable context [
 			pc: next pc
 			if path? expr: pc/1 [expr: to word! form expr]
 			
-			unless all [
+			either all [
 				word? expr
 				type: any [
 					all [base-type? expr expr]
 					all [enum-type? expr [integer!]]
 					find-aliased expr
 				]
-				pc: next pc
+			][
+				pc: either all [expr = 'pointer! block? pc/2][skip pc 2][next pc]
 			][
 				expr: fetch-expression/final 'size?
 				type: resolve-expr-type expr
@@ -2286,14 +2291,14 @@ system-dialect: make-profilable context [
 					append/only list comp-block-chunked/only/test 'case
 					cases: pc							;-- set cursor after the expression
 				]
-				clear find expr-call-stack #test
+				clear find/last expr-call-stack #test
 				
 				append expr-call-stack #body			;-- marker for enabling expression post-processing
 				fetch-into cases [						;-- compile case body
 					append/only list body: comp-block-chunked/bool
 					append/only types resolve-expr-type/quiet body/1
 				]
-				clear find expr-call-stack #body
+				clear find/last expr-call-stack #body
 				tail? cases: next cases
 			]
 			
@@ -2923,7 +2928,7 @@ system-dialect: make-profilable context [
 				any [
 					all [1 < slots job/target = 'ARM]	 ;-- ARM requires it only for struct > 4 bytes
 					all [
-						not find [Windows macOS] job/OS	 ;-- fallback on Linux ABI
+						not find [Windows macOS FreeBSD] job/OS	 ;-- fallback on Linux ABI
 						job/target <> 'ARM
 					]
 				]
@@ -3571,16 +3576,22 @@ system-dialect: make-profilable context [
 			]
 		]
 
-		run: func [obj [object!] src [block!] file [file!] /no-header /runtime /no-events][
-			runtime: to logic! runtime
+		run: func [
+			obj [object!] src [block!] file [file!]
+			/no-header /runtime /no-events
+			/locals allow-runtime?
+		][
 			job: obj
 			pc: src
 			script: secure-clean-path file
-	
+			runtime: to logic! runtime
+			allow-runtime?: all [not no-events job/runtime?]
+			
+			unless job/red-pass? [process-config pc/2]
 			unless no-header [comp-header]
-			unless no-events [emitter/target/on-global-prolog runtime job/type]
+			if allow-runtime? [emitter/target/on-global-prolog runtime job/type]
 			comp-dialect
-			unless no-events [
+			if allow-runtime? [
 				case [
 					runtime [
 						emitter/target/on-global-epilog yes	job/type ;-- postpone epilog event after comp-runtime-epilog
@@ -3756,6 +3767,16 @@ system-dialect: make-profilable context [
 		clear compiler/debug-lines/records
 		clear compiler/debug-lines/files
 		clear emitter/symbols
+	]
+	
+	process-config: func [header [block!] /local spec old-PIC?][
+		if spec: select header first [config:][
+			do bind spec job
+			old-PIC?: emitter/target/PIC?
+			emitter/target/PIC?: job/PIC?
+			if all [job/PIC? not old-PIC?][emitter/target/on-init]
+			if job/command-line [do bind job/command-line job]		;-- ensures cmd-line options have priority
+		]
 	]
 	
 	make-job: func [opts [object!] file [file!] /local job][

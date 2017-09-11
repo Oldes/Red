@@ -42,7 +42,7 @@ make-font: func [
 	either TYPE_OF(int) <> TYPE_INTEGER [
 		size: as float32! 0.0
 	][
-		size: as float32! int/value * 96 / 72						;@@ hard coded
+		size: as float32! int/value * 94 / 72						;@@ hard coded
 	]
 
 	int: as red-integer! values + FONT_OBJ_ANGLE
@@ -125,6 +125,7 @@ make-font: func [
 
 get-font-handle: func [
 	font	[red-object!]
+	idx		[integer!]
 	return: [handle!]
 	/local
 		state  [red-block!]
@@ -148,7 +149,7 @@ get-font: func [
 		hFont [handle!]
 ][
 	if TYPE_OF(font) <> TYPE_OBJECT [return null]
-	hFont: get-font-handle font
+	hFont: get-font-handle font 0
 	if null? hFont [hFont: make-font face font]
 	hFont
 ]
@@ -159,7 +160,7 @@ free-font: func [
 		state [red-block!]
 		hFont [handle!]
 ][
-	hFont: get-font-handle font
+	hFont: get-font-handle font 0
 	if hFont <> null [
 		state: as red-block! (object/get-values font) + FONT_OBJ_STATE
 		state/header: TYPE_NONE

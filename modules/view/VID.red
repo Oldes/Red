@@ -118,17 +118,41 @@ system/view/VID: context [
 	]
 	
 	align-faces: function [pane [block!] dir [word!] align [word!] max-sz [integer!]][
-		if any [
-			empty? pane
-			all [dir = 'across align = 'top]
-			all [dir = 'below  align = 'left]
-		][exit]											;-- already aligned
+		if empty? pane [exit]
 
-		axis: pick [y x] dir = 'across
+		edge?: any [
+			all [dir = 'across align <> 'middle]
+			all [dir = 'below  align <> 'center]
+		]
+		top-left?: find [top left] align
+		axis:  pick [y x] dir = 'across
+		svmm: system/view/metrics/margins
+
 		foreach face pane [
-			offset: max-sz - face/size/:axis
-			if find [center middle] align [offset: to integer! round offset / 2.0]
-			face/offset/:axis: face/offset/:axis + offset
+			unless face/options/at-offset [				;-- exclude absolute-positioned faces
+				offset: either top-left? [0][max-sz - face/size/:axis]
+				mar: select system/view/metrics/margins face/type
+				if type: face/options/class [mar: select mar type]
+				if mar [
+					offset: offset + either dir = 'across [
+						switch align [
+							top	   [negate mar/2/x]
+							middle [to integer! round mar/2/x + mar/2/y / 2.0]
+							bottom [mar/2/y]
+						]
+					][
+						switch align [
+							left   [negate mar/1/x]
+							center [to integer! round mar/1/x + mar/1/y / 2.0]
+							right  [mar/1/y]
+						]
+					]
+				]
+				if offset <> 0 [
+					if find [center middle] align [offset: to integer! round offset / 2.0]
+					face/offset/:axis: face/offset/:axis + offset
+				]
+			]
 		]
 	]
 	
@@ -253,7 +277,7 @@ system/view/VID: context [
 				| 'loose	  (add-option opts [drag-on: 'down])
 				| 'all-over   (set-flag opts 'flags 'all-over)
 				| 'hidden	  (opts/visible?: no)
-				| 'disabled	  (opts/enable?: no)
+				| 'disabled	  (opts/enabled?: no)
 				| 'select	  (opts/selected: fetch-argument integer! spec)
 				| 'rate		  (opts/rate: fetch-argument rate! spec)
 				   opt [rate! 'now (opts/now?: yes spec: next spec)]
@@ -287,6 +311,7 @@ system/view/VID: context [
 						opt?: switch/default type?/word value: pre-load value [
 							pair!	 [unless opts/size  [opts/size:  value]]
 							string!	 [unless opts/text  [opts/text:  value]]
+							logic!
 							percent! [unless opts/data  [opts/data:  value]]
 							image!	 [unless opts/image [opts/image: value]]
 							tuple!	 [
@@ -339,7 +364,13 @@ system/view/VID: context [
 			opts/size-x: style/template/size/x
 		]
 		user-size?: opts/size
-
+		
+		all [											;-- handle `image data`
+			face/type = 'base
+			image? opts/data
+			opts/image: opts/data
+			opts/data: none
+		]
 		if all [oi: opts/image any [opts/size-x not opts/size]][
 			opts/size: either opts/size-x [
 				x: either zero? oi/size/x [1][oi/size/x]
@@ -404,10 +435,16 @@ system/view/VID: context [
 		unless any [name block? body][throw-error spec]
 		unless obj/actors [obj/actors: make block! 4]
 		
+		spec: [face [object!] event [event! none!]]
+		if all [block? body body/1 = 'local block? body/2][
+			append spec: copy spec /local
+			append spec body/2
+		]
+		
 		append obj/actors load append form name #":"	;@@ to set-word!
 		append obj/actors either get-word? body [body][
 			reduce [
-				'func [face [object!] event [event! none!]]
+				'func spec
 				copy/deep body
 			]
 		]
@@ -436,7 +473,7 @@ system/view/VID: context [
 		pane-size:	  0x0								;-- panel's content dynamic size
 		direction: 	  'across
 		align:		  'top
-		begin:		  none
+		begin:		  tail list
 		size:		  none								;-- user-set panel's size
 		max-sz:		  0									;-- maximum width/height of current column/row
 		current:	  0									;-- layout's cursor position
@@ -446,7 +483,7 @@ system/view/VID: context [
 		top-left: bound: cursor: origin: spacing: pick [0x0 10x10] tight
 		
 		opts: object [
-			type: offset: size: size-x: text: color: enable?: visible?: selected: image: 
+			type: offset: size: size-x: text: color: enabled?: visible?: selected: image: 
 			rate: font: flags: options: para: data: extra: actors: draw: now?: init: none
 		]
 		if empty? opt-words: [][append opt-words words-of opts] ;-- static cache
@@ -459,7 +496,7 @@ system/view/VID: context [
 					'line (any [begin/1/offset 1x1]) + sz cursor + sz
 				]
 			]
-			if begin [align-faces begin direction align max-sz]
+			align-faces begin direction align max-sz
 			begin: tail list
 			
 			words: pick [[left center right][top middle bottom]] below?
@@ -562,8 +599,11 @@ system/view/VID: context [
 					throw-error spec
 				]
 				if style/template/type = 'window [throw-error spec]
+				
 				face: make face! copy/deep style/template
+				if h: select system/view/metrics/def-heights face/type [face/size/y: h]
 				face/parent: panel
+				
 				spec: fetch-options face opts style spec local-styles to-logic styling?
 				if style/init [do bind style/init 'face]
 				
@@ -587,10 +627,19 @@ system/view/VID: context [
 					repend value [to-set-word 'styled styled]
 					styling?: off
 				][
+					blk: [style: _ vid-align: _ at-offset: #[none]]
+					blk/2: value
+					blk/4: align
+					add-option face new-line/all blk no
+				
 					;-- update cursor position --
 					either at-offset [
-						face/offset: at-offset
+						face/options/at-offset: face/offset: at-offset
 						at-offset: none
+						all [							;-- account for hard margins
+							mar: select system/view/metrics/margins face/type
+							face/offset: face/offset - as-pair mar/1/x mar/2/x
+						]
 					][
 						either all [					;-- grid layout
 							divide?: all [divides divides <= length? list]
@@ -610,10 +659,6 @@ system/view/VID: context [
 							index: index + 1
 							face/offset/:axis: list/:index/offset/:axis
 						]
-					]
-					all [								;-- account for hard margins
-						mar: select system/view/metrics/margins face/type
-						face/offset: face/offset - as-pair mar/1/x mar/2/x
 					]
 					unless any [face/color panel/type = 'tab-panel][
 						face/color: system/view/metrics/colors/(face/type)
@@ -647,7 +692,7 @@ system/view/VID: context [
 		if all [focal-face not parent][panel/selected: focal-face]
 		
 		if options [set/some panel make object! user-opts]
-		if flags [spec/flags: either spec/flags [unique union spec/flags flgs][flgs]]
+		if flags [panel/flags: either panel/flags [unique union to-block panel/flags to-block flgs][flgs]]
 		
 		either only [list][
 			if panel/type = 'window [

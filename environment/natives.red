@@ -396,8 +396,8 @@ intersect: make native! [[
 
 difference: make native! [[
 		"Returns the special difference of two data sets"
-		set1 [block! hash! string! bitset! typeset!]
-		set2 [block! hash! string! bitset! typeset!]
+		set1 [block! hash! string! bitset! typeset! date!]
+		set2 [block! hash! string! bitset! typeset! date!]
 		/case "Use case-sensitive comparison"
 		/skip "Treat the series as fixed size records"
 			size [integer!]
@@ -747,8 +747,8 @@ wait: make native! [[
 checksum: make native! [[
 		"Computes a checksum, CRC, hash, or HMAC"
 		data 	[binary! string! file!]
-		method	[word!]	"MD5 SHA1 SHA256 SHA384 SHA512 CRC32 TCP hash"
-		/with	"Extra value for HMAC key or hash table size; not compatible with TCP/CRC32 methods"
+		method	[word!]	"MD5 SHA1 SHA256 SHA384 SHA512 CRC32 TCP ADLER32 hash"
+		/with	"Extra value for HMAC key or hash table size; not compatible with TCP/CRC32/ADLER32 methods"
 			spec [any-string! binary! integer!] "String or binary for MD5/SHA* HMAC key, integer for hash table size"
 		return: [integer! binary!]
 	]
@@ -763,21 +763,21 @@ unset: make native! [[
 ]
 
 new-line: make native! [[
-		"Sets or clears the new-line marker within a block or paren"
-		position [block! paren!] "Position to change marker (modified)"
-		value					 "Set TRUE for newline"
-		/all					 "Set/clear marker to end of series"
-		/skip					 "Set/clear marker periodically to the end of the series"
+		"Sets or clears the new-line marker within a list series"
+		position [any-list!] "Position to change marker (modified)"
+		value				 "Set TRUE for newline"
+		/all				 "Set/clear marker to end of series"
+		/skip				 "Set/clear marker periodically to the end of the series"
 			size [integer!]
-		return:  [block! paren!]
+		return:  [any-list!]
 	]
 	#get-definition NAT_NEW_LINE
 ]
 
 new-line?: make native! [[
-		"Returns the state of the new-line marker within a block or paren"
-		position [block! paren!] "Position to change marker"
-		return:  [block! paren!]
+		"Returns the state of the new-line marker within a list series"
+		position [any-list!] "Position to change marker"
+		return:  [any-list!]
 	]
 	#get-definition NAT_NEW_LINE?
 ]
@@ -825,7 +825,7 @@ now: make native! [[
 		/yearday	"Returns day of the year (Julian)"
 		/precise	"High precision time"
 		/utc		"Universal time (no zone)"
-		return: [time!]					;@@ add date! when we have it
+		return: [date! time! integer!]
 	]
 	#get-definition NAT_NOW
 ]
@@ -866,4 +866,20 @@ size?: make native! [[
 		return: [integer! none!]
 	]
 	#get-definition NAT_SIZE?
+]
+
+browse: make native! [[
+		"Open web browser to a URL or file mananger to a local file"
+		url		[url! file!]
+	]
+	#get-definition NAT_BROWSE
+]
+
+decompress: make native! [[
+		"Decompresses data. Data in GZIP format (RFC 1952) by default"
+		data		  [binary!]
+		/zlib	 size [integer!] "Data in ZLIB format (RFC 1950), uncompressed file size is required"
+		/deflate size [integer!] "Data in DEFLATE format (RFC 1951), uncompressed file size is required"
+	]
+	#get-definition NAT_DECOMPRESS
 ]

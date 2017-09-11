@@ -149,6 +149,7 @@ update-gdiplus-modes: func [ctx [draw-ctx!] ][
 update-gdiplus-brush: func [ctx [draw-ctx!] /local handle [integer!]][
 	handle: 0
 	ctx/gp-brush-type: BRUSH_TYPE_NORMAL
+	ctx/other/gradient-fill?: false
 	unless zero? ctx/gp-brush [
 		GdipDeleteBrush ctx/gp-brush
 		ctx/gp-brush: 0
@@ -161,6 +162,7 @@ update-gdiplus-brush: func [ctx [draw-ctx!] /local handle [integer!]][
 
 update-gdiplus-pen: func [ctx [draw-ctx!] /local handle [integer!]][
 	ctx/gp-pen-type: BRUSH_TYPE_NORMAL
+	ctx/other/gradient-pen?: false
 	either ctx/pen? [
 		if ctx/gp-pen-saved <> 0 [
 			ctx/gp-pen: ctx/gp-pen-saved
@@ -2087,6 +2089,7 @@ OS-draw-brush-bitmap: func [
 	texture: 0
 	result: GdipCreateTexture2I as-integer img/node wrap x y width height :texture
 	either brush? [
+		ctx/brush?:         yes
 		ctx/gp-brush:       texture
 		ctx/gp-brush-type:  BRUSH_TYPE_TEXTURE
 	][
@@ -2945,6 +2948,7 @@ OS-draw-grad-pen-old: func [
 		GdipCreatePathGradientFromPath n :brush
 		GdipDeletePath n
 		GdipSetPathGradientCenterColor brush color/value
+		GdipSetPathGradientCenterPointI brush as tagPOINT :offset/x
 		reverse-int-array color count
 		n: count - 1
 		start: 2
@@ -3078,7 +3082,7 @@ OS-draw-grad-pen: func [
 		last-c/value: color/value
 		count: count + 1
 	]
-	gradient: either brush? [ ctx/other/gradient-fill ][ ctx/other/gradient-pen ]
+	gradient: either brush? [ctx/brush?: yes ctx/other/gradient-fill ][ ctx/other/gradient-pen ]
 	gradient/count:     count
 	gradient/created?:  false
 	gradient/positions?: false

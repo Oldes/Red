@@ -163,6 +163,7 @@ error: context [
 			sym		[red-word!]
 			w		[red-word!]
 			cat		[integer!]
+			cat2	[integer!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "error/make"]]
 
@@ -203,7 +204,7 @@ error: context [
 				errors: (as red-object! object/get-values errors) + cat
 				sym: as red-word! object/get-words errors
 				
-				w: sym + (int/value // 100)
+				w: sym + (int/value // 100 + 2)
 				if (sym + object/get-size errors) <= as red-value! w [
 					fire [TO_ERROR(script out-of-range) spec]
 				]
@@ -223,38 +224,37 @@ error: context [
 						errors: (as red-object! object/get-values errors) + cat
 						value: value + 1
 						if value < block/rs-tail blk [
-							cat: object/rs-find errors value
-							if cat = -1 [fire [TO_ERROR(script invalid-spec-field) words/_id]]
+							cat2: object/rs-find errors value
+							if cat2 = -1 [fire [TO_ERROR(script invalid-spec-field) words/_id]]
 							copy-cell value base + field-id
 						]
 					]
 					TYPE_SET_WORD [
-						value: block/select-word blk words/_type no
-						if TYPE_OF(value) = TYPE_NONE [
-							fire [TO_ERROR(script missing-spec-field) words/_type]
+						_context/bind blk GET_CTX(new) new/ctx yes
+						interpreter/eval blk no
+
+						value: object/rs-select new as red-value! words/_type
+						if TYPE_OF(value) <> TYPE_WORD [
+							fire [TO_ERROR(script invalid-spec-field) words/_type]
 						]
 						cat: object/rs-find errors value
 						if cat = -1 [fire [TO_ERROR(script invalid-spec-field) words/_type]]
-						
-						value: block/select-word blk words/_id no
-						if TYPE_OF(value) = TYPE_NONE [
-							fire [TO_ERROR(script missing-spec-field) words/_id]
+
+						value: object/rs-select new as red-value! words/_id
+						if TYPE_OF(value) <> TYPE_WORD [
+							fire [TO_ERROR(script invalid-spec-field) words/_id]
 						]
 						errors: (as red-object! object/get-values errors) + cat
-						if value < block/rs-tail blk [
-							cat: object/rs-find errors value
-							if cat = -1 [
-								fire [TO_ERROR(script invalid-spec-field) words/_id]
-							]
-						]
-						
-						_context/bind blk GET_CTX(new) new/ctx yes
-						interpreter/eval blk no
+						cat2: object/rs-find errors value
+						if cat2 = -1 [fire [TO_ERROR(script invalid-spec-field) words/_id]]
 					]
 					default [
 						fire [TO_ERROR(internal invalid-error)]
 					]
 				]
+				int: as red-integer! base + field-code
+				int/header: TYPE_INTEGER
+				int/value: cat * 100 + cat2 - 2
 			]
 			TYPE_STRING [
 				new: create TO_ERROR(user message) spec null null

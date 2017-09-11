@@ -51,6 +51,22 @@ system: context [
 		actions:
 		natives: none
 		
+		accessors: [
+			date!	[
+				date year month day zone time hour minute second weekday yearday
+				timezone week isoweek julian
+			]
+			email!	[user host]
+			event!	[
+				type face window offset key picked flags away? down? mid-down?
+				alt-down? aux-down? ctrl? shift?
+			]
+			image!	[size argb rgb alpha]
+			pair!	[x y]
+			;point!	[x y z]
+			time!	[hour minute second]
+		]
+		
 		errors: context [
 			throw: object [
 				code:				0
@@ -131,6 +147,7 @@ system: context [
 				bad-bad:			[:arg1 "error:" :arg2]
 				bad-make-arg:		["cannot MAKE" :arg1 "from:" :arg2]
 				bad-to-arg:			["cannot MAKE/TO" :arg1 "from:" :arg2]
+				invalid-months:		"invalid system/locale/month list"
 				invalid-spec-field: ["invalid" :arg1 "field in spec block"]
 				missing-spec-field: [:arg1 "not found in spec block"]
 				move-bad:			["Cannot MOVE elements from" :arg1 "to" :arg2]

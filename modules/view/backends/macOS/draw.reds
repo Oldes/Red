@@ -38,12 +38,13 @@ draw-begin: func [
 	unless pattern? [
 		CGContextSaveGState CGCtx
 
-		if on-graphic? [							;-- draw on image!, flip the CTM
+		either on-graphic? [							;-- draw on image!, flip the CTM
 			rc: as NSRect! img
 			CGContextTranslateCTM CGCtx as float32! 0.0 rc/y
 			CGContextScaleCTM CGCtx as float32! 1.0 as float32! -1.0
+		][
+			CGContextTranslateCTM CGCtx as float32! 0.5 as float32! 0.5
 		]
-		CGContextTranslateCTM CGCtx as float32! 0.5 as float32! 0.5
 	]
 
 	ctx/raw:			CGCtx
@@ -58,10 +59,11 @@ draw-begin: func [
 	ctx/pen-color:		0						;-- default: black
 	ctx/pen-join:		miter
 	ctx/pen-cap:		flat
-	ctx/brush-color:	0
+	ctx/brush-color:	-1
 	ctx/grad-pen:		-1
 	ctx/pen?:			yes
 	ctx/brush?:			no
+	ctx/grad-pos?:		no
 	ctx/colorspace:		CGColorSpaceCreateDeviceRGB
 	ctx/last-pt-x:		as float32! 0.0
 	ctx/last-pt-y:		as float32! 0.0
@@ -209,6 +211,7 @@ OS-draw-line-width: func [
 		width-v	[float32!]
 ][
 	width-v: get-float32 as red-integer! width
+	if width-v <= F32_0 [width-v: F32_1]
 	if dc/pen-width <> width-v [
 		dc/pen-width: width-v
 		CGContextSetLineWidth dc/raw width-v
@@ -724,6 +727,7 @@ OS-draw-text: func [
 	][
 		draw-text-box ctx pos as red-object! text catch?
 	]
+	CG-set-color ctx dc/pen-color no				;-- drawing text will change pen color, so reset it
 	CG-set-color ctx dc/brush-color yes				;-- drawing text will change brush color, so reset it
 ]
 
@@ -1012,7 +1016,6 @@ OS-draw-image: func [
 			as float32! crop1/y
 			w
 			h
-		CGImageRelease img
 		img: sub-img
 	]
 
@@ -1031,22 +1034,20 @@ fill-gradient-region: func [
 	CGContextSaveGState ctx
 	CGContextClip ctx
 
-	;pt1/x: dc/grad-x1
-	;pt1/y: dc/grad-y1
-	;pt1: CGPointApplyAffineTransform pt1 dc/matrix
-	;pt2/x: dc/grad-x2
-	;pt2/y: dc/grad-y2
-	;pt2: CGPointApplyAffineTransform pt2 dc/matrix
-	CGContextConcatCTM dc/raw dc/matrix
-
 	either dc/grad-type = linear [
+		pt1/x: dc/grad-x1
+		pt1/y: dc/grad-y1
+		pt1: CGPointApplyAffineTransform pt1 dc/matrix
+		pt2/x: dc/grad-x2
+		pt2/y: dc/grad-y2
+		pt2: CGPointApplyAffineTransform pt2 dc/matrix
 		CGContextDrawLinearGradient
 			ctx
 			dc/grad-pen
-			;pt1/x pt1/y pt2/x pt2/y
-			dc/grad-x1 dc/grad-y1 dc/grad-x2 dc/grad-y2
+			pt1/x pt1/y pt2/x pt2/y
 			3
 	][
+		CGContextConcatCTM dc/raw dc/matrix
 		CGContextDrawRadialGradient
 			ctx
 			dc/grad-pen
@@ -1082,24 +1083,36 @@ OS-draw-grad-pen-old: func [
 		n		[integer!]
 		delta	[float32!]
 		p		[float32!]
+		angle	[float32!]
+		sx		[float32!]
+		sy		[float32!]
+		rotate? [logic!]
+		scale?	[logic!]
 ][
+	dc/matrix: CGAffineTransformMake F32_1 F32_0 F32_0 F32_1 F32_0 F32_0
 	dc/grad-type: type
 	dc/grad-spread: spread
 	dc/grad-x1: as float32! offset/x			;-- save gradient offset for later use
 	dc/grad-y1: as float32! offset/y
 
 	int: as red-integer! offset + 1
-	dc/grad-x2: as float32! int/value
+	sx: as float32! int/value
 	int: int + 1
-	dc/grad-y2: as float32! int/value
+	sy: as float32! int/value
 
-	if type = radial [
-		dc/grad-radius: dc/grad-y2 - dc/grad-x2
+	dc/grad-y2: dc/grad-y1
+	either type = linear [
+		dc/grad-x2: dc/grad-x1 + sy
+		dc/grad-x1: dc/grad-x1 + sx
+	][
+		dc/grad-radius: sy - sx
 		dc/grad-x2: dc/grad-x1
-		dc/grad-y2: dc/grad-y1
 	]
 
 	n: 0
+	rotate?: no
+	scale?: no
+	sy: as float32! 1.0
 	while [
 		int: int + 1
 		n < 3
@@ -1110,11 +1123,18 @@ OS-draw-grad-pen-old: func [
 			default			[break]
 		]
 		switch n [
-			0	[if p <> as float32! 0.0 [dc/grad-angle: p dc/grad-rotate?: yes]]
-			1	[if p <> as float32! 1.0 [dc/grad-sx: p dc/grad-scale?: yes]]
-			2	[if p <> as float32! 1.0 [dc/grad-sy: p dc/grad-scale?: yes]]
+			0	[if p <> F32_0 [angle: p rotate?: yes]]
+			1	[if p <> F32_1 [sx: p scale?: yes]]
+			2	[if p <> F32_1 [sy: p scale?: yes]]
 		]
 		n: n + 1
+	]
+	if rotate? [
+		p: (as float32! PI) / (as float32! 180.0)
+		dc/matrix: CGAffineTransformRotate dc/matrix p * angle
+	]
+	if scale? [
+		dc/matrix: CGAffineTransformScale dc/matrix sx sy
 	]
 
 	color: colors + 4

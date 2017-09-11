@@ -261,6 +261,7 @@ red: context [
 			set-word!
 			pair!
 			time!
+			date!
 		] type?/word :expr
 	]
 	
@@ -280,6 +281,8 @@ red: context [
 	float-special?: func [value][value/1 = #"."]
 	tuple-value?:	func [value][value/1 = #"~"]
 	percent-value?: func [value][#"%" = last value]
+	
+	date-special?:  func [value][all [block? value value/1 = #!date!]]
 	
 	map-value?: func [value][all [block? value value/1 = #!map!]]
 	
@@ -946,7 +949,10 @@ red: context [
 		select objects obj
 	]
 	
-	obj-func-path?: func [path [path!] /local fpath base symbol found? fun origin name obj][
+	obj-func-path?: func [
+		path [path!]
+		/local fpath base symbol found? fun origin name obj info ctx
+	][
 		either path/1 = 'self [
 			found?: bind? path/1
 			path: copy path
@@ -955,7 +961,17 @@ red: context [
 			fpath: head clear next copy path
 		][
 			set [found? fpath base] search-obj to path! path
-			unless found? [return none]
+			unless found? [
+				if all [
+					not empty? ctx-stack
+					info: find-binding path/1
+					ctx: find objects info/1
+				][
+					path: head insert copy path to word! form ctx/-2
+					set [found? fpath base] search-obj to path! path
+				]
+				unless found? [return none]
+			]
 
 			fun: append copy fpath either base = obj-stack [ ;-- extract function access path without refinements
 				pick path 1 + (length? fpath) - (length? obj-stack)
@@ -1288,34 +1304,50 @@ red: context [
 		repend functions [name reduce [any [kind 'function!] arity spec refs]]
 	]
 	
-	fetch-functions: func [pos [block!] /local name type spec refs arity nat? proto entry][
+	fetch-functions: func [
+		pos [block!]
+		/local name type spec refs arity nat? proto entry saved defer invalid-spec
+	][
 		if any [tail? pos not any-word? pos/1][
 			pc: back pc
 			throw-error "Non-compilable function definition"
 		]
+		invalid-spec: [throw-error ["invalid argument function to make op!:" mold copy/part at pos 4 2]]
+		
 		name: to word! pos/1
 		if find functions name [exit]					;-- mainly intended for 'make (hardcoded)
 
 		switch type: pos/3 [
 			native! [nat?: yes if find intrinsics name [type: 'intrinsic!]]
 			action! [append actions name]
-			op!     [repend op-actions [name proto: get-prefix-func to word! pos/4]]
-		]
-		spec: either pos/3 = 'op! [
-			either entry: find functions proto [
-				if all [proto <> to word! pos/4 1 < length? obj-stack][
-					append entry/2 select objects do obj-stack	;-- append context name if method
+			op!     [
+				if find [has does] pos/4 invalid-spec
+				either find [func function] pos/4 [		;-- anon function case
+					unless block? spec: pos/5 invalid-spec
+					defer: name
+				][
+					repend op-actions [name proto: get-prefix-func to word! pos/4]
 				]
-				entry/2/3
-			][
-				throw-error ["Cannot MAKE OP! from unknown function:" mold pos/4]
 			]
-		][
-			clean-lf-deep pos/4/1
+		]
+		unless spec [
+			spec: either pos/3 = 'op! [
+				either entry: find functions proto [
+					if 1 < length? obj-stack [
+						append entry/2 select objects do obj-stack	;-- append context name if method
+					]
+					entry/2/3
+				][
+					throw-error ["Cannot MAKE OP! from unknown function:" mold pos/4]
+				]
+			][
+				clean-lf-deep pos/4/1
+			]
 		]
 		if nat? [prepare-typesets name spec]
 		set [refs arity] make-refs-table spec
 		repend functions [name reduce [type arity spec refs]]
+		defer
 	]
 	
 	emit-path: func [
@@ -1535,6 +1567,22 @@ red: context [
 			do body
 			output: saved
 	]
+	
+	encode-UTC-time: func [time [time! none!] zone [time! none!]][
+		to decimal! either time [either zone [time - zone][time]][0.0]
+	]
+	
+	encode-date: func [value [date!] /with zone /local date][
+		unless zone [zone: value/zone]
+		date:  (shift/left value/year 17)
+			or (shift/left value/month 12)
+			or (shift/left value/day 7)
+			or (shift/left abs zone/hour 2)
+			or (abs to-integer zone/minute / 15)
+		if negative? zone [date: date or 64]			;-- zone negative bit
+		if value/time [date: date or 65536]				;-- time? flag
+		date
+	]
 
 	emit-float: func [value [decimal!] /local bin][
 		bin: IEEE-754/to-binary64 value
@@ -1553,7 +1601,7 @@ red: context [
 
 	comp-literal: func [
 		/inactive /with val
-		/local value char? special? percent? map? tuple? name w make-block type idx
+		/local value char? special? percent? map? tuple? dt-special? name w make-block type idx zone
 	][
 		make-block: [
 			value: to block! value
@@ -1565,7 +1613,8 @@ red: context [
 		]
 		value: either with [val][pc/1]					;-- val can be NONE
 		map?: map-value? :value
-		
+		dt-special?: date-special? value
+
 		either any [
 			all [
 				issue? :value
@@ -1578,6 +1627,7 @@ red: context [
 			]
 			scalar? :value
 			map?
+			dt-special?
 		][
 			case [
 				char? [
@@ -1648,8 +1698,20 @@ red: context [
 				]
 				time? :value [
 					emit 'time/push
-					emit (to decimal! value) * 1E9
+					emit to decimal! value
 					insert-lf -2
+				]
+				dt-special? [
+					emit 'date/push
+					zone: value/3
+					value: value/2
+					emit reduce [encode-date/with value zone encode-UTC-time value/time zone]
+					insert-lf -4
+				]
+				date? :value [
+					emit 'date/push
+					emit reduce [encode-date value encode-UTC-time value/time value/zone]
+					insert-lf -4
 				]
 				'else [
 					emit to path! reduce [to word! form type? :value 'push]
@@ -1905,7 +1967,7 @@ red: context [
 		
 		if proto [
 			if body? [inherit-functions obj last proto]
-			emit reduce ['object/duplicate select objects last proto ctx]
+			emit reduce ['object/duplicate select objects last proto ctx 'true]
 			insert-lf -3
 		]
 		if all [not body? not passive][
@@ -2292,20 +2354,32 @@ red: context [
 	]
 		
 	comp-foreach: has [word blk cond ctx idx][
-		either block? pc/1 [
-			;TBD: raise error if not a block of words only
-			foreach word blk: pc/1 [
-				add-symbol word
+		case [
+			block? pc/1 [
+				;TBD: raise error if not a block of words only
+				foreach word blk: pc/1 [
+					add-symbol word
+					add-global word
+				]
+				idx: either ctx: find-contexts to word! blk/1 [
+					redbin/emit-block/with blk ctx
+				][
+					redbin/emit-block blk
+				]
+			]
+			word? pc/1 [
+				add-symbol word: pc/1
 				add-global word
 			]
-			idx: either ctx: find-contexts to word! blk/1 [
-				redbin/emit-block/with blk ctx
-			][
-				redbin/emit-block blk
+			'else [										;-- fallback option
+				emit-open-frame 'foreach
+				comp-expression
+				comp-expression
+				comp-expression
+				emit-native 'foreach
+				emit-close-frame
+				exit
 			]
-		][
-			add-symbol word: pc/1
-			add-global word
 		]
 		pc: next pc
 		
@@ -2710,7 +2784,8 @@ red: context [
 	]
 	
 	comp-routine: has [name word spec spec* body spec-idx body-idx original ctx ret][
-		name: check-func-name get-prefix-func to word! original: pc/-1
+		unless set-word? original: pc/-1 [throw-error "a routine must have a name"]
+		name: check-func-name get-prefix-func to word! original
 		add-symbol word: to word! clean-lf-flag name
 		add-global word
 		
@@ -2864,6 +2939,7 @@ red: context [
 		unless block? pc/1 [
 			throw-error "CASE expects a block as argument"
 		]
+		if empty? pc/1 [emit 'none/push insert-lf -1 exit]
 		
 		saved: pc
 		pc: pc/1
@@ -3601,9 +3677,21 @@ red: context [
 				word? pc/1
 				any-function? pc/1
 			][
-				fetch-functions skip pc -2				;-- extract functions definitions
+				if pc/1 = 'routine! [throw-error "MAKE routine! is not supported"]
+				defer: fetch-functions skip pc -2		;-- extract functions definitions
 				pc: back pc
 				comp-word/final
+				if defer [								;-- make op! func ... post-processing
+					repend op-actions [
+						defer
+						name: to word! next next form first find/last skip tail output -10 get-word!
+					]
+					all [
+						entry: find functions name
+						1 < length? obj-stack
+						append entry/2 select objects do obj-stack	;-- append context name if method
+					]
+				]
 			]
 			all [
 				not literal
@@ -4056,7 +4144,7 @@ red: context [
 				true
 			]
 			#build-date [
-				change pc mold now
+				change pc now
 				comp-expression
 				true
 			]

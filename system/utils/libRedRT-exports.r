@@ -61,6 +61,7 @@
 	red/block/push
 	red/char/push
 	red/datatype/push
+	red/date/push
 	;red/event/push
 	red/email/push
 	red/file/push
@@ -333,6 +334,9 @@
 	red/natives/call*
 	red/natives/zero?*
 	red/natives/size?*
+	red/natives/browse*
+	red/natives/context?*
+	red/natives/decompress*
 ][
 	red/stack/arguments		cell!
 	red/stack/top			cell!
