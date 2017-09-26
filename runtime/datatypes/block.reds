@@ -994,19 +994,28 @@ block: context [
 		/local
 			slot  [red-value!]
 			s	  [series!]
+			hash? [logic!]
+			hash  [red-hash!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "block/put"]]
-		
+
+		hash?: TYPE_OF(blk) = TYPE_HASH
+		hash: as red-hash! blk
 		blk: as red-block! find blk field null no case? no no null null no no no no
 		
 		either TYPE_OF(blk) = TYPE_NONE [
 			copy-cell field ALLOC_TAIL(blk)
-			copy-cell value ALLOC_TAIL(blk)
+			value: copy-cell value ALLOC_TAIL(blk)
+			if hash? [
+				_hashtable/put hash/table value - 1
+				_hashtable/put hash/table value
+			]
 		][
 			s: GET_BUFFER(blk)
 			slot: s/offset + blk/head + 1
 			if slot >= s/tail [slot: alloc-tail s]
 			copy-cell value slot
+			if hash? [_hashtable/put hash/table slot]
 			ownership/check as red-value! blk words/_put slot blk/head + 1 1
 		]
 		value
@@ -1052,6 +1061,7 @@ block: context [
 			bool [red-logic!]
 			int  [red-integer!]
 			d    [red-float!]
+			f	 [red-function!]
 			all? [logic!]
 			num  [integer!]
 			blk1 [red-block!]
@@ -1063,7 +1073,8 @@ block: context [
 	][
 		#if debug? = yes [if verbose > 0 [print-line "block/compare-call"]]
 
-		stack/mark-func words/_body						;@@ find something more adequate
+		f: as red-function! fun
+		stack/mark-func words/_body	f/ctx				;@@ find something more adequate
 
 		either flags and sort-reverse-mask = 0 [
 			v2: stack/push value2
@@ -1086,7 +1097,7 @@ block: context [
 			s2/tail: value2 + num
 		]
 
-		_function/call as red-function! fun global-ctx	;FIXME: hardcoded origin context
+		_function/call f global-ctx						;FIXME: hardcoded origin context
 		stack/unwind
 		stack/pop 1
 

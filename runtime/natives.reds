@@ -923,6 +923,7 @@ natives: context [
 		either blk? [
 			while [value < tail][
 				value: interpreter/eval-next value tail yes
+				clear-newline stack/arguments + 1
 				either into? [actions/insert* -1 0 -1][block/append*]
 				stack/keep									;-- preserve the reduced block on stack
 			]
@@ -1577,21 +1578,31 @@ natives: context [
 		/local
 			data [red-integer!]
 			bits [red-integer!]
+			pos	 [integer!]
+			res	 [integer!]
 	][
 		#typecheck [shift left logical]
 		data: as red-integer! stack/arguments
 		bits: data + 1
-		case [
+		pos: bits/value
+		if pos < 0 [pos: 0]
+		
+		res: case [
 			left >= 0 [
-				data/value: data/value << bits/value
+				either pos > 31 [0][data/value << pos]
 			]
 			logical >= 0 [
-				data/value: data/value >>> bits/value
+				either pos > 31 [0][data/value >>> pos]
 			]
 			true [
-				data/value: data/value >> bits/value
+				either pos > 31 [
+					either data/value < 0 [-1][0]
+				][
+					data/value >> pos
+				]
 			]
 		]
+		data/value: res
 	]
 
 	to-hex*: func [
