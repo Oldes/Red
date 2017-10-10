@@ -903,7 +903,7 @@ red: context [
 	find-object: func [spec [word! object!] /by-name][
 		case [
 			by-name [find/skip objects spec 6]
-			'else	[none]
+			'else	[back find/skip next objects spec 6]
 		]
 	]
 	
@@ -969,6 +969,7 @@ red: context [
 		unless find [word! get-word! path!] type?/word expr [return none]
 		any [
 			attempt [do join obj-stack expr]
+			all [path? expr attempt [do head insert copy expr 'objects]]
 			all [
 				find [object! word!] type?/word expr
 				pos: find-object/by-name expr
@@ -2853,6 +2854,7 @@ red: context [
 			process-routine-calls body ctx/1 spec select-object ctx/1
 		]
 		clear find spec*: copy spec /local
+		parse spec* [any [word! [pos: block! | (insert/only pos [any-type!])] | skip]]
 		spec-idx: redbin/emit-block spec*
 		body-idx: either job/red-store-bodies? [
 			reduce [redbin/emit-block body]
@@ -3432,7 +3434,7 @@ red: context [
 					decorate-exec-ctx decorate-symbol name
 					get-func-ctx original ctx-name
 				]
-				insert-lf -2
+				insert-lf -3
 			][
 				emit-open-frame/with name spec/1 ctx-name
 			]
@@ -3596,7 +3598,7 @@ red: context [
 		/native
 		/local 
 			name value ctx original obj obj-bound? deep? inherit? proto
-			defer mark start take-frame preset?
+			defer mark start take-frame preset? no-check?
 	][
 		name: original: pc/1
 		pc: next pc
@@ -3630,9 +3632,9 @@ red: context [
 			comp-set-make
 			exit
 		]
-		
-		if all [word? name not path? pc/1 word? pc/1 is-object? pc/1][
+		if all [word? name find [path! word!] type?/word pc/1 is-object? pc/1][
 			register-object/store pc/1 name
+			no-check?: yes
 		]
 		;-- General case: emit stack-oriented construction code --
 		emit-open-frame 'set
@@ -3669,7 +3671,7 @@ red: context [
 			][]
 			'else [
 				if start [emit start]
-				unless obj-bound? [check-redefined name original]
+				unless any [obj-bound? no-check?][check-redefined name original]
 				check-cloned-function name
 				comp-substitute-expression				;-- fetch a value (2nd argument)
 			]
@@ -4382,8 +4384,11 @@ red: context [
 		]
 	]
 	
-	register-object: func [obj [word!] name /store /local pos prev entry][
-		if pos: find-object/by-name obj [
+	register-object: func [obj [word! path!] name /store /local pos prev entry o][
+		if pos: any [
+			all [path? obj object? o: do head insert copy obj 'objects find-object o]
+			all [not path? obj find-object/by-name obj]
+		][
 			;if prev: find get-obj-base name name [prev/1: none] ;-- unbind word with previous object
 
 			insert entry: tail objects copy/part pos 6
@@ -4438,8 +4443,9 @@ red: context [
 		]
 	]
 	
-	comp-bodies: does [
+	comp-bodies: has [pos][
 		obj-stack: to path! 'func-objs
+		pos: tail objects
 		
 		foreach [name spec body symbols locals-nb stack ssa ctx obj?] bodies [
 			locals-stack: stack
@@ -4452,6 +4458,7 @@ red: context [
 
 			comp-func-body name spec body copy symbols locals-nb ;-- copy avoids symbols corruption by decoration
 		]
+		clear pos
 		clear locals-stack
 		clear ssa-names
 		func-objs: none
