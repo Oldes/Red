@@ -1028,7 +1028,7 @@ Red [
 		
 		TRAP_ERRORS(names/redMold [
 			stack/push value
-			actions/mold* -1 -1 -1 -1
+			actions/mold* -1 -1 -1 -1 -1
 			stack/unwind-last
 		])
 	]
