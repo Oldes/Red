@@ -10,7 +10,7 @@ REBOL [
 do-cache %system/utils/profiler.r
 profiler/active?: no
 
-do-cache %system/utils/r2-forward.r
+if system/version/1 = 2 [do-cache %system/utils/r2-forward.r]
 do-cache %system/utils/int-to-bin.r
 do-cache %system/utils/IEEE-754.r
 do-cache %system/utils/virtual-struct.r
@@ -19,6 +19,9 @@ do-cache %system/utils/unicode.r
 do-cache %system/linker.r
 do-cache %system/emitter.r
 do-cache %system/utils/libRedRT.r
+
+decorated-type!: either R3? [:ref!][:issue!]
+decorated-type?: either R3? [:ref?][:issue?]
 
 system-dialect: make-profilable context [
 	verbose:  	  0										;-- logs verbosity level
@@ -141,7 +144,7 @@ system-dialect: make-profilable context [
 		]
 		
 		comparison-op: [= <> < > <= >=]
-		float-special: [#INF #INF- #NaN #0-]
+		float-special: load either R3? [{@INF @INF- @NaN @0-}][{#INF #INF- #NaN #0-}]
 		
 		functions: to-hash compose [
 		;--Name--Arity--Type----Cc--Specs--		   Cc = Calling convention
@@ -661,7 +664,9 @@ system-dialect: make-profilable context [
 			reduce [count array]
 		]
 		
-		variadic?: func [value][all [issue? value value/1 <> #"."]]
+		variadic?: func [value] either R3? [
+			[issue? value]
+		][	[all [issue? value value/1 <> #"."]]]
 		
 		any-path?: func [value][
 			find [path! set-path! lit-path!] type?/word value
@@ -900,7 +905,7 @@ system-dialect: make-profilable context [
 				binary! [
 					next next reduce ['array! length? value 'pointer! [byte!]]
 				]
-				issue!	 [
+				decorated-type!	 [
 					either find float-special next value [[float!]][
 						throw-error ["invalid special float value:" mold value]
 					]
@@ -2133,7 +2138,7 @@ system-dialect: make-profilable context [
 			none
 		]
 		
-		comp-context: has [name level][
+		comp-context: has [name level word][
 			unless block? pc/2 [throw-error "context specification block is missing"]
 			unless set-word? pc/-1 [throw-error "context's name setting is missing"]
 			unless zero? block-level [
@@ -2158,10 +2163,11 @@ system-dialect: make-profilable context [
 			unless ns-stack [ns-stack: make block! 1]
 			append ns-stack to word! mold/flat name
 			
+			word: to word! mold/flat name		;-- workaround newline flag remanence issue
 			either ns-path [
-				append ns-path to word! mold/flat name
+				append ns-path word
 			][
-				ns-path: to lit-path! mold/flat name		;-- workaround newline flag remanence issue
+				ns-path: to path! word
 			]
 			either find/only ns-list ns-path [
 				throw-error ["context" name "already defined"]
@@ -3719,7 +3725,11 @@ system-dialect: make-profilable context [
 				decimal!	[do pass]
 				binary!		[do pass]
 				block!		[also preprocess-array pc/1 pc: next pc]
-				issue!		[either pc/1/1 = #"." [do pass][comp-directive]]
+				decorated-type!
+				issue!		[
+					? pc/1 ? pass halt
+					either pc/1/1 = #"." [do pass][comp-directive]
+				]
 			][
 				throw-error "datatype not allowed"
 			]
@@ -3759,11 +3769,15 @@ system-dialect: make-profilable context [
 			expr
 		]
 		
+		is-directive?: func [pc] either R3? [
+			[issue? pc]
+		][	[all [issue? pc pc/1 <> #"."]] ]
+
 		comp-dialect: has [expr][
 			block-level: 0
 			while [not tail? pc][
 				case [
-					all [issue? pc/1 pc/1/1 <> #"."][comp-directive]
+					is-directive? pc/1 [comp-directive]
 					all [
 						set-word? pc/1
 						find [func function] pc/2
@@ -4117,7 +4131,7 @@ system-dialect: make-profilable context [
 	]
 	
 	make-job: func [opts [object!] file [file!] /local job][
-		job: construct/with third opts linker/job-class	
+		job: construct/with either R3? [body-of opts][third opts] linker/job-class
 		file: last split-path file					;-- remove path
 		file: to-file first parse file "."			;-- remove extension
 		case [

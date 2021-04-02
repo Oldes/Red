@@ -21,7 +21,12 @@ context [
 	hexa: charset "0123456789ABCDEF"
 
 	data: copy read-cache %runtime/macros.reds
-	parse/case data [any [pos: 2 8 hexa e: #"h" (pos: remove/part pos e) :pos | skip]] ;-- remove unloadable literals
+	either R3? [
+		;@@ there is a bug in R3's parse! Must use `1 skip` as a workaround!
+		parse/case data [any [pos: 2 8 hexa e: #"h" (pos: remove/part pos e) :pos 1 skip | skip]] ;-- remove unloadable literals
+	][
+		parse/case data [any [pos: 2 8 hexa e: #"h" (pos: remove/part pos e) :pos | skip]] ;-- remove unloadable literals
+	]
 	data: load data
 
 	currencies: load-cache %environment/system.red

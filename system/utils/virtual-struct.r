@@ -32,7 +32,7 @@ virtual-struct!: context [
 		__vs-spec: none
 	]
 
-	pad: func [buf [any-string!] n [integer!] /local mod][
+	pad: func [buf [any-string! binary!] n [integer!] /local mod][
 		unless any [
 			empty? buf
 			zero? mod: (length? buf) // n
@@ -69,7 +69,10 @@ virtual-struct!: context [
 		]
 		
 		if data [
-			specs: skip first obj 3					;-- skip over: self, __vs-type, __vs-spec
+			specs: either R3? [
+				skip keys-of obj 2  ; skip  __vs-type and __vs-spec (no self in R3)
+			][	skip first obj 3 ]  ; skip over: self, __vs-type, __vs-spec
+			
 			until [
 				set in obj specs/1 data/1
 				data: next data
@@ -92,7 +95,10 @@ virtual-struct!: context [
 		][
 			make error! "invalid virtual struct! value"
 		]
-		out: make binary! 4 * length? members: skip first obj 3		;-- raw guess
+		out: make binary! 4 * length? members: either R3? [ ;-- raw guess
+			skip keys-of obj 2 ; skip  __vs-type and __vs-spec (no self in R3)
+		][	skip first obj 3 ] ; skip self, __vs-type and __vs-spec
+
 		n: any [n alignment]
 		
 		foreach name members [

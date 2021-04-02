@@ -59,12 +59,22 @@ IEEE-754: context [
 		n  [number! issue!]
 		/rev     "reverse binary output"
 		/local out sign exp frac
-	][
+	] either R3? [[
+		either issue? n [
+			out: copy select specials/double next n ;@@ fixme!
+		][
+			out: binary/write 8 reduce ['double n]
+			out: copy out/buffer
+		]
+		either rev [out][reverse out]
+	]][[
 		either issue? n [
 			out: copy select specials/double next n
 		][
 			set [sign exp frac] split64 n
 			out: make binary! 8
+			;@@ use of `to  char!` is not possible in R3, because it is unicode aware!
+			;@@ in R2: `#{C8} = to-binary to-char 200`, but in R3 and Red: `#{C388}`
 			loop 6 [
 				insert out to char! byte: frac // 256
 				frac: frac - byte / 256
@@ -73,7 +83,7 @@ IEEE-754: context [
 			insert out to char! exp / 16 + (128 * sign)
 		]
 		either rev [copy reverse out][out]
-	]
+	]]
 
 	split32: func [
 		"Returns block containing three components of single floating point value"
@@ -110,12 +120,22 @@ IEEE-754: context [
 		n  [number! issue!]
 		/rev     "reverse binary output"
 		/local out sign exp frac
-	][
+	] either R3? [[
+		either issue? n [
+			out: copy select specials/double next n ;@@ fixme!
+		][
+			out: binary/write 4 reduce ['float n]
+			out: copy out/buffer
+		]
+		either rev [out][reverse out]
+	]][[
 		either issue? n [
 			out: copy select specials/single next n
 		][
 			set [sign exp frac] split32 n
 			out: make binary! 4
+			;@@ use of `to  char!` is not possible in R3, because it is unicode aware!
+			;@@ in R2: `#{C8} = to-binary to-char 200`, but in R3 and Red: `#{C388}`
 			loop 2 [
 				insert out to char! byte: frac // 256
 				frac: frac - byte / 256
@@ -124,5 +144,5 @@ IEEE-754: context [
 			insert out to char! exp / 2 + (128 * sign)
 		]
 		either rev [copy reverse out][out]
-	]
+	]]
 ]

@@ -295,7 +295,12 @@ linker: context [
 		file: make-filename job
 		if verbose >= 1 [print ["output file:" file]]
 		
-		if error? try [write/binary/direct file job/buffer][
+		;job/symbols: new-line/skip to block! job/symbols true 2
+		;save either R3? [%/r/job-r3][%/r/job-r2] mold job
+		
+		if error? try [
+			write/binary file job/buffer
+		][
 			throw-error ["locked or unreachable file:" to-local-file file]
 		]
 		
@@ -303,8 +308,10 @@ linker: context [
 			do reduce [get fun job file]
 		]
 		
-		if find get-modes file 'file-modes 'owner-execute [
-			set-modes file [owner-execute: true]
+		unless R3? [
+			if find get-modes file 'file-modes 'owner-execute [
+				set-modes file [owner-execute: true]
+			]
 		]
 		file
 	]

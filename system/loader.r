@@ -77,15 +77,19 @@ loader: make-profilable context [
 	]
 
 	push-system-path: func [file [file!] /local path][
-		append ssp-stack system/script/path
-		if relative-path? file [file: get-modes file 'full-path]
+		append ssp-stack either R3? [what-dir][system/script/path]
+		if relative-path? file [
+			file: either R3? [query/mode file 'name][get-modes file 'full-path]
+		]
 		path: split-path file
 		system/script/path: path/1
+		if R3? [change-dir path/1]
 		path/2
 	]
 	
 	pop-system-path: does [
 		system/script/path: take/last ssp-stack
+		if R3? [change-dir system/script/path]
 	]
 	
 	check-macro-parameters: func [args [paren!]][
@@ -104,6 +108,7 @@ loader: make-profilable context [
 	]
 
 	check-condition: func [type [word!] payload [block!]][
+	;print "check-condition"	? type ? payload
 		case [
 			type = 'switch [
 				any [
@@ -116,7 +121,10 @@ loader: make-profilable context [
 					compose/deep [all [(payload/1) find (payload/1) (payload/3)]]
 					job
 			]
-			'else [do bind/copy payload job]
+			'else [
+				if R3? [payload: bind payload lib]
+				do bind/copy payload job
+			]
 		]
 	]
 	
@@ -263,7 +271,21 @@ loader: make-profilable context [
 			opt 'not ['find block! skip | ['any | 'all] block!]
 			| set name word! set opr skip set value any-type!
 		]
-		
+
+		decorated-char-rule: [
+			s: issue! (
+				if s/1/1 = #"'" [
+					value: to integer! debase/base next s/1 16
+					either value > 255 [
+						throw-error ["unsupported literal byte:" next s/1]
+					][
+						s/1: to char! value
+					]
+				]
+			)
+		]
+		if R3? [decorated-char-rule/2: ref!]
+
 		parse/case src blk: [
 			s: (do store-line)
 			some [
@@ -389,20 +411,11 @@ loader: make-profilable context [
 					s: remove/part s 2
 				) :s
 				| line-rule
-				| s: issue! (
-					if s/1/1 = #"'" [
-						value: to integer! debase/base next s/1 16
-						either value > 255 [
-							throw-error ["unsupported literal byte:" next s/1]
-						][
-							s/1: to char! value
-						]
-					]
-				)
+				| decorated-char-rule
 				| p: [path! | set-path!] :p into [some [defs | skip]]	;-- process macros in paths
 				
 				| s: (if any [block? s/1 paren? s/1][append/only stack copy [1]])
-				  [into blk | block! | paren!]			;-- black magic...
+				  [p: [block! | paren!] :p into blk | block! | paren!]			;-- black magic...
 				  s: (
 					if any [block? s/-1 paren? s/-1][
 						header: last stack
@@ -453,18 +466,19 @@ loader: make-profilable context [
 					raw: raw/2
 					push-system-path input
 				][
-					input: push-system-path input
+					input: push-system-path input 
 				]
 				pushed?: yes
 			]
 			
 			if error? set/any 'err try [			;-- read source file
-				src: as-string either any [cache? all [encap? own]][
+				src: either any [cache? all [encap? own]][
 					if all [cache? new][raw: new]
 					read-binary-cache raw
 				][
-					read/binary input
+					either R3? [read/string input][read/binary input]
 				]
+				src: either R3? [to string! src][as-string src] 
 			][
 				throw-error ["file access error:" mold input]
 			]
@@ -477,6 +491,7 @@ loader: make-profilable context [
 			]
 			append clear scripts-stk current-script
 		]
+		;print 3
 		src: any [src input]
 		if file? input [check-marker src]			;-- look for "Red/System" head marker
 		
@@ -493,7 +508,10 @@ loader: make-profilable context [
 				expand-block src
 			]
 		]
+		;print 4
 		if pushed? [pop-system-path]
+		;? src 
 		src
+
 	]
 ]

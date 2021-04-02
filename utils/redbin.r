@@ -39,7 +39,7 @@ context [
 	
 	get-index: does [index - 1]
 	
-	pad: func [buf [any-string!] n [integer!] /local bytes][
+	pad: func [buf [any-string! binary!] n [integer!] /local bytes][
 		unless zero? bytes: (length? buf) // n [
 			insert/dup tail buf null n - bytes
 		]
@@ -256,7 +256,7 @@ context [
 		
 		unless pos: find/case symbols word [
 			s: tail sym-string
-			repend sym-string [word null]
+			repend sym-string [form :word null]
 			append sym-table to-bin32 (index? s) - 1
 			append symbols word
 			pos: back tail symbols

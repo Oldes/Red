@@ -1,6 +1,6 @@
 REBOL [
 	Title:   "Red command-line front-end"
-	Author:  "Nenad Rakocevic, Andreas Bolka"
+	Author:  "Nenad Rakocevic, Andreas Bolka, Oldes"
 	File: 	 %red.r
 	Tabs:	 4
 	Rights:  "Copyright (C) 2011-2018 Red Foundation, Andreas Bolka. All rights reserved."
@@ -10,6 +10,21 @@ REBOL [
 	}
 	Encap: [quiet secure none cgi title "Red" no-window]
 ]
+set 'R3? (system/version/1 = 3)
+if R3? [
+	;- for compatibility wth R2
+	extend system 'words lib
+	extend system 'error system/catalog/errors
+	bind?:     :context?
+	as-binary: :to-binary
+	found?: func[v][not none? :v]
+	disarm: func[e [error!]][e]
+	shift:  func[d b /left /logical][unless left [b: negate b] apply :lib/shift [d b logical]]
+	debase: func[v /base b][lib/debase v any [b 64]]
+	enbase: func[v /base b][lib/enbase v any [b 64]]
+	system/options/binary-base: 16 ; because there is a bug in current R3 build where the binary-base is 64 by default!
+]
+
 
 unless value? 'encap-fs [do %system/utils/encap-fs.r]
 
@@ -23,10 +38,18 @@ redc: context [
 	win-version:	none								;-- Windows version extracted from "ver" command
 	SSE3?:			yes
 
-	Linux?:    system/version/4 = 4
-	Windows?:  system/version/4 = 3
-	macOS?:    system/version/4 = 2
-	load-lib?: any [encap? find system/components 'Library]
+	either R3? [
+		Linux?:    system/platform = 'Linux
+		Windows?:  system/platform = 'Windows
+		macOS?:    system/platform = 'macOS
+		load-lib?: false ;@@ not yet supported
+		encap?:    false ;@@ not yet supported
+	][
+		Linux?:    system/version/4 = 4
+		Windows?:  system/version/4 = 3
+		macOS?:    system/version/4 = 2
+		load-lib?: any [encap? find system/components 'Library]
+	]
 
 	if encap? [
 		temp-dir: switch/default system/version/4 [
@@ -131,17 +154,25 @@ redc: context [
 	]
 
 	if Windows? [
+		;- Resolve Windows' version 
+		;  for Windows 10 (10.0) it is value 100!
+		;  it is used later for not including gesture support on older Windows versions
 		use [buf cmd][
 			cmd: "cmd /c ver"
 			buf: make string! 128
 
-			either load-lib? [
-				do-cache %utils/call.r					;@@ put `call.r` in proper place when we encap
-				win-call/output cmd buf
+			either R3? [
+				call/output cmd buf
 			][
-				set 'win-call :call						;-- Rebol/Core compatible mode
-				win-call/output/show cmd buf			;-- not using /show would freeze CALL
+				either load-lib? [
+					do-cache %utils/call.r					;@@ put `call.r` in proper place when we encap
+					win-call/output cmd buf
+				][
+					set 'win-call :call						;-- Rebol/Core compatible mode
+					win-call/output/show cmd buf			;-- not using /show would freeze CALL
+				]
 			]
+
 			parse/all buf [[thru "[" | thru "Version" | thru "ver" | thru "v" | thru "indows"] to #"." pos:]
 			
 			win-version: any [
@@ -152,32 +183,55 @@ redc: context [
 	]
 
 	;; Select a default target based on the REBOL version.
-	default-target: does [
-		any [
-			switch/default system/version/4 [
-				2 ["Darwin"]
-				3 ["MSDOS"]
-				4 [either system/version/5 = 8 ["RPI"]["Linux"]]
-				7 ["FreeBSD"]
-			]["MSDOS"]
+	either R3? [
+		default-target: does [
+			any [
+				switch/default system/platform [
+					macOS   ["Darwin"]
+					Windows ["MSDOS"]
+					;@@ TODO: there is no RPI version of R3 yet!
+					Linux   ["Linux"] ;[either system/version/5 = 8 ["RPI"]["Linux"]]
+					FreeBSD ["FreeBSD"]
+				]["MSDOS"]
+			]
 		]
-	]
-	
-	get-OS-name: does [
-		switch/default system/version/4 [
-			2 ['macOS]
-			3 ['Windows]
-			4 ['Linux]
-		]['Linux]										;-- usage related to lib suffixes
+		get-OS-name: does [system/platform]
+	][
+		default-target: does [
+			any [
+				switch/default system/version/4 [
+					2 ["Darwin"]
+					3 ["MSDOS"]
+					4 [either system/version/5 = 8 ["RPI"]["Linux"]]
+					7 ["FreeBSD"]
+				]["MSDOS"]
+			]
+		]
+		
+		get-OS-name: does [
+			switch/default system/version/4 [
+				2 ['macOS]
+				3 ['Windows]
+				4 ['Linux]
+			]['Linux]										;-- usage related to lib suffixes
+		]
 	]
 
 	fail: func [value] [
-		print value
+		if block? value [value: reform value]
+		print either R3? [as-purple value][value]
 		if system/options/args [quit/return 1]
 		halt
 	]
 
-	fail-try: func [component body /local err] [
+	fail-try: func [component body /local err ] either R3? [[
+		if error? set/any 'err try body [
+			fail [
+				"**" component "Internal Error^/"
+				form err
+			]
+		]
+	]][[
 		if error? set/any 'err try body [
 			err: disarm err
 			foreach w [arg1 arg2 arg3][
@@ -193,7 +247,7 @@ redc: context [
 				"*** Near: " mold/flat err/near newline
 			]
 		]
-	]
+	]]
 
 	format-time: func [time [time!]][
 		round (time/second * 1000) + (time/minute * 60000)
@@ -595,7 +649,7 @@ redc: context [
 	
 	show-stats: func [result /local words][
 		print ["...compilation time :" format-time result/1 "ms"]
-		words: length? first system/words
+		words: length? either R3? [keys-of system/contexts/user][first system/words]
 		
 		if result/2 [
 			print [
@@ -878,6 +932,14 @@ redc: context [
 		set [src opts] parse-options cmd
 		unless src [do opts exit]						;-- run named command and terminates
 
+		;- check R3 version        
+		if all [R3? any [
+			;system/version < 3.6.0
+			error? try [make hash! 1  to word! "<s>"]
+		]][
+			fail "*** This script requires specially crafted Rebol version!"
+		]
+
 		rs?: red-system? src
 
 		;-- If we use a build directory, ensure it exists.
@@ -922,3 +984,4 @@ redc: context [
 
 redc/fail-try "Driver" [redc/main]
 if encap? [quit/return 0]
+halt

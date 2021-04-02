@@ -33,7 +33,7 @@ red: context [
 	func-objs:	   none									;-- points to 'objects first in-function object
 	paths-stack:   make block! 4						;-- stack of generated code for handling dual codepaths for paths
 	native-ts:	   make block! 200						;-- prepared native! typesets: [name [<ts-list>] ...]
-	rebol-gctx:	   bind? 'rebol
+	rebol-gctx:	   either R3? [system/contexts/lib][ bind? 'rebol]
 	expr-stack:	   make block! 8
 	current-call:  none
 	currencies:	   none									;-- extra user-defined currency codes from script's header
@@ -1006,7 +1006,11 @@ red: context [
 	]
 	
 	obj-func-call?: func [name [any-word!] /local obj][
-		if any [rebol-gctx = obj: bind? name find shadow-funcs obj][return no]
+		if any [
+			none? obj: bind? :name
+			rebol-gctx = obj
+			find shadow-funcs obj
+		][	return no ]
 		select objects obj
 	]
 	
@@ -1706,10 +1710,11 @@ red: context [
 		value: either with [val][pc/1]					;-- val can be NONE
 		map?: map-value? :value
 		dt-special?: date-special? value
-
+		
+		decorated?: either R3? [:ref?][:issue?]
 		either any [
 			all [
-				issue? :value
+				decorated? :value
 				any [
 					char?:	  unicode-char? value
 					special?: float-special? value
@@ -4363,10 +4368,12 @@ red: context [
 			throw-error "missing argument"
 		]
 		
+		decorated?: either R3? [:ref?][:issue?]
+? pc/1
 		switch/default type?/word pc/1 [
-			issue!		[
+			issue! ref!	[
 				either all [
-					issue? pc/1
+					decorated? pc/1
 					any [
 						unicode-char?  pc/1
 						float-special? pc/1
@@ -4386,8 +4393,10 @@ red: context [
 			set-path!	[comp-path/set? root]
 			path! 		[comp-path root]
 		][
+
 			comp-literal
 		]
+
 		if root [
 			either tail? pc	[
 				unless find/only [stack/reset stack/unwind] last output [
@@ -4550,6 +4559,7 @@ red: context [
 	]
 	
 	encap-preprocess: func [code [block!] /local prolog rule p][
+	ask "-- encap-preproces"
 		prolog: make block! 1
 		parse code rule: [
 			any [
@@ -4570,6 +4580,7 @@ red: context [
 	]
 	
 	comp-bodies: has [pos][
+	print "===comp-bodies"
 		obj-stack: to path! 'func-objs
 		pos: tail objects
 		
@@ -4615,13 +4626,17 @@ red: context [
 	]
 	
 	comp-source: func [code [block!] /local user main saved mods][
+	print "=== comp-source"
 		output: make block! 10000
 		comp-init
-		
+print 1		
 		pc: next preprocessor/expand/clean load-source/hidden %boot.red job ;-- compile Red's boot script
+print 2
 		unless job/red-help? [clear-docstrings pc]
 		booting?: yes
+
 		comp-block
+		print 3	
 		append output boot-extras
 		booting?: no
 		
@@ -4732,6 +4747,7 @@ red: context [
 	]
 	
 	comp-as-exe: func [code [block!] /local out user mods main defs][
+print "==== comp-as-exe"
 		out: copy/deep either job/dev-mode? [[
 			Red/System [origin: 'Red]
 
@@ -4756,9 +4772,10 @@ red: context [
 		if all [job/dev-mode? not job/libRedRT?][
 			replace out <imports> libRedRT/get-include-file job
 		]
-		
+
 		if job/encap? [
 			code: encap-preprocess code
+				ask  "??"	
 			code: compose/deep [
 				(code/1)
 				do [(code/2)]
@@ -4945,6 +4962,7 @@ red: context [
 		opts [object!]
 		/local time src resources defs
 	][
+		print "--- compile"
 		verbose: opts/verbosity
 		job: opts
 		clean-up
@@ -4956,18 +4974,19 @@ red: context [
 			job/red-pass?: yes
 			process-config src/1
 			preprocessor/expand/clean src job
-			if job/show = 'expanded [probe next src]
+
+			if job/show = 'expanded [next src]
 			process-fields src/1 next src
 			extracts/init job
 			if job/libRedRT? [libRedRT/init]
 			if file? file [system-dialect/collect-resources src/1 resources file]
 			src: next src
-			
 			if all [job/dev-mode? not job/libRedRT?][
+
 				defs: libRedRT/get-definitions
 				append clear functions defs/1
 				;redbin/index:	defs/2
-				globals:		defs/3
+				globals:		defs/3 
 				objects:		compose/deep bind objects: defs/4 red
 				contexts:		defs/5
 				actions:		defs/6

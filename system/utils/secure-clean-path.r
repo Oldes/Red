@@ -28,7 +28,7 @@ secure-clean-path: func [
     /limit               {Limit paths relative to this root}
     root   [any-string!] {The root path (Default "", not applied if "")}
     /nocopy              {Modify target instead of copy}
-    /local root-rule a b c slash dot
+    /local root-rule a b c slash dot _limit
 ] [
 	dot: "."
 	slash: "/"
@@ -41,7 +41,7 @@ secure-clean-path: func [
     ]
     
     if parse/all target [
-        root-rule limit:
+        root-rule _limit:
         any [
             a: dot [slash | end] (remove/part a 2) :a |
             a: some slash b: (remove/part a b) :a |

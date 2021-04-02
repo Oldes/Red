@@ -179,12 +179,15 @@ emitter: make-profilable context [
 		entry/2
 	]
 	
-	local-offset?: func [var [word! tag!] /local pos][
+	local-offset?: func [var [word! tag!] /local pos] either R3? [[
+		select/skip stack var 2
+	]][[
+		; in R2 result of select/skip is a block!
 		all [
 			pos: select/skip stack var 2
 			pos/1
 		]
-	]
+	]]
 
 	logic-to-integer: func [op [word! block!] /with chunk [block!] /local offset body][
 		if all [with block? op][op: op/1]
@@ -229,7 +232,7 @@ emitter: make-profilable context [
 	][
 		if any [find [logic! function!] type logic? value][
 			type: 'integer!
-			if logic? value [value: to integer! value]	;-- TRUE => 1, FALSE => 0
+			if logic? value [value: make integer! value]	;-- TRUE => 1, FALSE => 0
 		]
 		if all [value = <last> not find [float! float64!] type][
 			type: 'integer!								; @@ not accurate for float32!
@@ -239,22 +242,33 @@ emitter: make-profilable context [
 		
 		size: size-of? type
 		ptr: tail data-buf
+
+		;print ["store-global: " type mold value]
 		
 		switch/default type [
 			integer! [
 				case [
 					find [char! decimal!] type?/word value [value: to integer! value]
-					find [true false] value [value: to integer! get value]
+					find [true false] value [value: make integer! get value]
 					not integer? value [value: 0]
 				]
 				pad-data-buf target/default-align
 				ptr: tail data-buf
-				value: debase/base to-hex value 16
-				either target/little-endian? [
-					value: tail value
-					loop size [append ptr to char! (first value: skip value -1)]
+				val: value
+				if size <> 4 [print ["integer! with size:" size] halt ]
+				either R3? [
+					tmp: binary/write 8 reduce [
+						either target/little-endian? ['ui32le]['ui32be] value
+					]
+					append ptr tmp/buffer
 				][
-					append ptr skip tail value negate size		;-- truncate if required
+					value: debase/base to-hex value 16
+					either target/little-endian? [
+						value: tail value
+						loop size [append ptr to char! (first value: skip value -1)]
+					][
+						append ptr skip tail value negate size		;-- truncate if required
+					]
 				]
 			]
 			byte! [
@@ -739,7 +753,8 @@ emitter: make-profilable context [
 	]
 	
 	arguments-size?: func [locals [block!] /push /local size name type width offset ret-ptr?][
-		size: pick 4x0 ret-ptr?: to logic! struct-ptr? locals
+		; not using 4x0 because in R3 the size result would be decimal!
+		size: pick [4 0] ret-ptr?: to logic! struct-ptr? locals
 		if push [
 			clear stack
 			if ret-ptr? [repend stack [<ret-ptr> target/args-offset]]

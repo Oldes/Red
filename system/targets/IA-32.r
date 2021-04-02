@@ -24,18 +24,18 @@ make-profilable make target-class [
 													;-- and invalid operands raise exceptions.
 	conditions: make hash! [
 	;-- name ----------- signed --- unsigned --
-		overflow?		 #{00}		-
-		not-overflow?	 #{01}		-	
-		=				 #{04}		-
-		<>				 #{05}		-
-		signed?			 #{08}		-
-		unsigned?		 #{09}		-
-		even?			 #{0A}		-
-		odd?			 #{0B}		-
-		<				 #{0C}		#{02}
-		>=				 #{0D}		#{03}
-		<=				 #{0E}		#{06}
-		>				 #{0F}		#{07}
+		overflow?		  0			-			;#{00}		-
+		not-overflow?	  1			-			;#{01}		-	
+		=				  4			-			;#{04}		-
+		<>				  5			-			;#{05}		-
+		signed?			  8			-			;#{08}		-
+		unsigned?		  9			-			;#{09}		-
+		even?			 10			-			;#{0A}		-
+		odd?			 11			-			;#{0B}		-
+		<				 12			2			;#{0C}		#{02}
+		>=				 13			3			;#{0D}		#{03}
+		<=				 14			6			;#{0E}		#{06}
+		>				 15			7			;#{0F}		#{07}
 	]
 	
 	patch-floats-definition: func [mode [word!] /local value][
@@ -82,7 +82,8 @@ make-profilable make target-class [
 		op: either '- = third op: find conditions op [op/2][
 			pick op pick [2 3] signed?
 		]
-		data/(length? data): (to char! last data) or (to char! first op) ;-- REBOL2's awful binary! handling
+		op: op or last data
+		data/(length? data): either R3? [op][to char! op]
 		data
 	]
 	
@@ -932,7 +933,7 @@ make-profilable make target-class [
 	][
 		if verbose >= 3 [print [">>>storing" mold name mold value]]
 		if value = <last> [value: 'last]			;-- force word! code path in switch block
-		if logic? value [value: to integer! value]	;-- TRUE -> 1, FALSE -> 0
+		if logic? value [value: make integer! value]	;-- TRUE -> 1, FALSE -> 0
 		
 		store-dword: [
 			emit-variable name
@@ -2295,7 +2296,7 @@ make-profilable make target-class [
 			emit to-bin32 offset
 		][
 			emit #{8D65}							;-- LEA esp, [ebp-locals]
-			emit to-char 256 - offset
+			emit to-bin8 256 - offset
 		]
 		emit #{8F45F8}								;-- POP [ebp-8]
 		emit #{8F45FC}								;-- POP [ebp-4]

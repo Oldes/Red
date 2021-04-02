@@ -7,10 +7,11 @@ REBOL [
 	License: "BSD-3 - https://github.com/red/red/blob/master/BSD-3-License.txt"
 ]
 
-;-- Patch NEW-LINE and NEW-LINE? natives to accept paren! --
-append first find third :new-line  block! [path! paren!]
-append first find third :new-line? block! paren!
-
+unless R3? [
+	;-- Patch NEW-LINE and NEW-LINE? natives to accept paren! --
+	append first find third :new-line  block! [path! paren!]
+	append first find third :new-line? block! paren!
+]
 
 lexer: context [
 	verbose: 0
@@ -822,11 +823,15 @@ lexer: context [
 		]
 		head change/part str new tail str
 	]
-	
+either R3? [
+	encode-char: func [value [integer!]][
+		make ref! join #"'" to-hex value
+	]
+][
 	encode-char: func [value [integer!]][
 		head insert to-hex value #"'"
 	]
-	
+]	
 	decode-hexa: func [s [string!]][
 		to integer! to issue! s
 	]
@@ -847,11 +852,15 @@ lexer: context [
 		wd: d1/weekday
 		d1 + (w - 1 * 7 + (either wd < 5 [1][8]) - wd)
 	]
-	
+either R3? [
 	load-ref: func [s [string!]][
-		append join make issue! 1 + length? s #"@" s
+		make ref! join #"@" s
 	]
-	
+][
+	load-ref: func [s [string!]][
+		append join make issue! (1 + length? s) #"@" s
+	]
+]
 	load-money: func [s [string!] e [string!] neg? [logic!] /local cur dec pos][
 		if all [s/1 <> #"$" s/4 = #"$"][
 			cur: uppercase copy/part s 3
@@ -869,15 +878,24 @@ lexer: context [
 		insert/dup s #"0" 22 - length? s
 		insert s pick "-+" neg?
 		insert s any [cur "..."]
-		append join make issue! 1 + length? s #"$" s
+		either R3? [
+			make ref! join #"$" s
+		][	append join make issue! 1 + length? s #"$" s]
 	]
-	
+
+either R3? [
+	load-tuple: func [s [string!]][
+		try/except [append make ref! "~" to binary! to tuple! s][ throw-error ]
+	]
+][
 	load-tuple: func [s [string!] /local new byte p e][
 		new: join make issue! 1 + length? s #"~"
 		byte: [p: 1 3 digit e: (append new skip to-hex load copy/part p e 6)]
 		unless parse s [byte 2 11 [dot byte]][throw-error]
 		new
 	]
+]
+
 
 	load-number: func [s [string!]][
 		switch/default type [
@@ -942,7 +960,7 @@ lexer: context [
 	identify-header: func [src /local p ws found?][
 		ws: charset " ^-^M^/"
 		rs?: no
-		pos: src
+		pos: to string! src
 		until [
 			pos: any [
 				find/tail pos "Red"						;-- don't set pos to none before throw-error

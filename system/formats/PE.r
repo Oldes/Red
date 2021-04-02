@@ -462,8 +462,8 @@ context [
 			+ (opt-header-size)
 			+ (sect-header-size * (extra + divide length? job/sections 2))
 			
-		ep-mem-page:  round/ceiling ptr / memory-align
-		ep-file-page: round/ceiling ptr / file-align
+		ep-mem-page:  to integer! round/ceiling ptr / memory-align
+		ep-file-page: to integer! round/ceiling ptr / file-align
 	]
 	
 	entry-point-address?: func [job [object!]][
@@ -473,7 +473,7 @@ context [
 	image-size?: func [job [object!] /local pages][
 		pages: ep-mem-page
 		foreach [name section] job/sections [
-			pages: pages + round/ceiling (length? section/2)  / memory-align
+			pages: pages + to integer! round/ceiling (length? section/2)  / memory-align
 		]
 		pages * memory-align
 	]
@@ -483,7 +483,7 @@ context [
 		
 		foreach [name section] job/sections [
 			if name = s-name [return pages * memory-align]
-			pages: pages + round/ceiling (length? section/2) / memory-align	
+			pages: pages + to integer! round/ceiling (length? section/2) / memory-align	
 		]
 		make error! join section " section not found!"
 	]
@@ -494,7 +494,7 @@ context [
 		
 		foreach [name section] job/sections [
 			if name = s-name [return pages * align]
-			pages: pages + round/ceiling (length? section/2) / align	
+			pages: pages + to integer! round/ceiling (length? section/2) / align	
 		]
 		make error! reform [mold s-name "section not found!"]
 	]
@@ -798,7 +798,7 @@ context [
 		oh/uninitdata-size:		0			
 		oh/entry-point-addr:	ep						;-- entry point is set to beginning of CODE
 		oh/code-base:			code-base
-		oh/data-base:			(code-page + round/ceiling (length? job/sections/code/2) / memory-align) * memory-align
+		oh/data-base:			(code-page + to integer! round/ceiling (length? job/sections/code/2) / memory-align) * memory-align
 		oh/image-base:			base-address
 		oh/memory-align:		memory-align
 		oh/file-align:			file-align
@@ -846,7 +846,7 @@ context [
 
 		sh/virtual-size: 	length? spec/2
 		sh/virtual-address:	section-addr?/memory job name
-		sh/raw-data-size: 	file-align * round/ceiling (length? spec/2) / file-align
+		sh/raw-data-size: 	file-align * to integer! round/ceiling (length? spec/2) / file-align
 		sh/raw-data-ptr:	section-addr?/file job name
 		sh/relocations-ptr:	0							;-- @@ relevant only for OBJ files
 		sh/line-num-ptr:	0

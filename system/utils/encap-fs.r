@@ -27,7 +27,9 @@ encap-fs: context [
 		]
 	]
 	
-	set 'encap? to-logic select system/components 'decap
+	if error? try [
+		set 'encap? to-logic select system/components 'decap
+	][	set 'encap? false R3?: true]
 
 	either encap? [
 		set 'set-cache 	none
@@ -89,7 +91,12 @@ encap-fs: context [
 		set 'set-cache-base none
 		set 'do-cache func [file][do load file]
 		set 'load-cache set 'load-cache-binary :load
-		set 'read-cache :read
-		set 'read-binary-cache func [file [file!]][read/binary file]
+		either R3? [
+			set 'read-cache func [file [file!]][read/string file]
+			set 'read-binary-cache :read
+		][
+			set 'read-cache :read
+			set 'read-binary-cache func [file [file!]][read/binary file]
+		]
 	]
 ]

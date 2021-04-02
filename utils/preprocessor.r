@@ -160,6 +160,7 @@ preprocessor: context [
 
 	fetch-next: func [code [block! paren!] /local i left item item2 value fn-spec path f-arity at-op? op-mode][
 		left: reduce [yes]
+		if all [Rebol R3?] [code: bind code system/contexts/lib]
 		
 		while [all [not tail? left not tail? code]] [
 			either not left/1 [							;-- skip quoted argument
@@ -170,7 +171,7 @@ preprocessor: context [
 					all [									;-- a ...
 						word? :item
 						any-function? set/any 'value get/any :item
-						func-arity?/block fn-spec: spec-of get/any :item
+						func-arity?/block fn-spec: spec-of :value
 					]
 					all [									;-- a/b ...
 						path? :item
@@ -327,7 +328,7 @@ preprocessor: context [
 	expand: func [
 		code [block! paren!] job [object! none!]
 		/clean
-		/local rule e pos cond value then else cases body keep? expr src saved file
+		/local rule e pos cond value _then_ else cases body keep? expr src saved file
 	][	
 		either clean [reset job][exec/config: job]
 
@@ -366,12 +367,12 @@ preprocessor: context [
 						]
 					]
 				)
-				| s: #if (set [cond e] eval next s s/1) :e [set then block! | (syntax-error s e)] e: (
-					if active? [either cond [change/part s then e][remove/part s e]]
+				| s: #if (set [cond e] eval next s s/1) :e [set _then_ block! | (syntax-error s e)] e: (
+					if active? [either cond [change/part s _then_ e][remove/part s e]]
 				) :s
 				| s: #either (set [cond e] eval next s s/1) :e 
-					[set then block! set else block! | (syntax-error s e)] e: (
-						if active? [either cond [change/part s then e][change/part s else e]]
+					[set _then_ block! set else block! | (syntax-error s e)] e: (
+						if active? [either cond [change/part s _then_ e][change/part s else e]]
 				) :s
 				| s: #switch (set [cond e] eval next s s/1) :e [set cases block! | (syntax-error s e)] e: (
 					if active? [

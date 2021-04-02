@@ -57,9 +57,9 @@ target-class: context [
 		>				 <=
 	]
 	
-	opposite?: func [cond [word!]][
-		first select/skip opp-conditions cond 2
-	]
+	opposite?: func [cond [word!]] either R3? [[
+		      select/skip opp-conditions cond 2
+	]][[first select/skip opp-conditions cond 2]] ; in R2, select/skip is returning a block!
 	
 	power-of-2?: func [n [integer! char!]][
 		if all [

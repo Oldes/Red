@@ -67,7 +67,9 @@ REBOL [
 
 exportable: context [
 	export: func [words [block!]][						;-- export argument words to global context
-		foreach w words [set bind w system/words get :w]
+		either R3? [
+			foreach w words [extend system/contexts/user w get :w]
+		][	foreach w words [set bind w system/words get :w]]
 	]
 ]
 
